@@ -1,0 +1,12 @@
+<article class="product-card">
+  <a class="product-image" href="{% url 'marketplace:detail' listing.pk %}">
+    {% if listing.display_image %}<img src="{{ listing.display_image.image.url }}" alt="{{ listing.goat.get_breed_display }} goat {{ listing.goat.goat_id }}">{% else %}<div class="product-placeholder"><i class="bi bi-image"></i><span>Photo coming soon</span></div>{% endif %}
+    <span class="availability availability-{{ listing.status }}"><i class="bi bi-circle-fill"></i> {{ listing.get_status_display }}</span>
+  </a>
+  <div class="product-body">
+    <div class="product-title"><div><small>Tag {{ listing.goat.tag_number|default:listing.goat.goat_id }}</small><h3>{{ listing.goat.name|default:listing.goat.get_breed_display }}</h3></div><strong>PHP {{ listing.price|floatformat:0 }}</strong></div>
+    <div class="product-specs"><span><i class="bi bi-bookmark"></i>{{ listing.goat.get_breed_display }}</span><span><i class="bi bi-gender-ambiguous"></i>{{ listing.goat.get_gender_display }}</span><span><i class="bi bi-speedometer2"></i>{% if listing.goat.weight_kg %}{{ listing.goat.weight_kg|floatformat:1 }} kg{% else %}Weight N/A{% endif %}</span><span><i class="bi bi-calendar3"></i>{{ listing.goat.age_display }}</span></div>
+    <a class="product-button" href="{% url 'marketplace:detail' listing.pk %}">View details <i class="bi bi-arrow-up-right"></i></a>
+  </div>
+</article>
+

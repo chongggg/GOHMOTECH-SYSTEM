@@ -1,0 +1,245 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block header_title %}Detection History{% endblock %}
+
+{% block extra_css %}
+    .confidence-bar {
+        height: 6px;
+        border-radius: var(--radius-full);
+        background: var(--gray-200);
+        overflow: hidden;
+    }
+    .confidence-fill {
+        height: 100%;
+        border-radius: var(--radius-full);
+        transition: width var(--transition-base);
+    }
+    .confidence-high { background: var(--success); }
+    .confidence-medium { background: var(--warning); }
+    .confidence-low { background: var(--danger); }
+
+    .crop-image-thumb {
+        width: 100%;
+        height: 130px;
+        object-fit: cover;
+        cursor: pointer;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+        transition: transform var(--transition-base);
+    }
+    .crop-image-thumb:hover { transform: scale(1.03); }
+
+    .detection-thumb-empty {
+        height: 130px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--card-bg-subtle);
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-md);
+        color: var(--text-tertiary);
+        font-size: 1.75rem;
+    }
+    .modal-image { max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: var(--radius-md); }
+
+    .detection-meta-row { margin-bottom: var(--spacing-sm); font-size: 0.875rem; color: var(--text-secondary); }
+    .detection-meta-row strong { color: var(--text-primary); }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-eyebrow">Monitoring</div>
+        <h1>Detection History</h1>
+        <p class="page-subtitle">AI-powered goat detections across all cameras</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'iot:goat_inventory' %}" class="btn btn-outline">
+            <i class="bi bi-list-ul"></i> Back to Inventory
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="content-card">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="hours_filter" class="form-label">Time Range</label>
+            <select name="hours" id="hours_filter" class="form-select" onchange="this.form.submit()">
+                <option value="1" {% if hours == 1 %}selected{% endif %}>Last Hour</option>
+                <option value="6" {% if hours == 6 %}selected{% endif %}>Last 6 Hours</option>
+                <option value="24" {% if hours == 24 %}selected{% endif %}>Last 24 Hours</option>
+                <option value="72" {% if hours == 72 %}selected{% endif %}>Last 3 Days</option>
+                <option value="168" {% if hours == 168 %}selected{% endif %}>Last 7 Days</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="goat_filter" class="form-label">Goat</label>
+            <select name="goat" id="goat_filter" class="form-select" onchange="this.form.submit()">
+                <option value="all">All Goats</option>
+                {% for goat in goats %}
+                    <option value="{{ goat.goat_id }}" {% if goat_id == goat.goat_id %}selected{% endif %}>
+                        {{ goat.goat_id }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="camera_filter" class="form-label">Camera</label>
+            <select name="camera" id="camera_filter" class="form-select" onchange="this.form.submit()">
+                <option value="all">All Cameras</option>
+                {% for camera in cameras %}
+                    <option value="{{ camera.id }}" {% if camera_id == camera.id|stringformat:"s" %}selected{% endif %}>
+                        {{ camera.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'iot:detection_history' %}" class="btn btn-outline w-100">
+                <i class="bi bi-arrow-clockwise"></i> Reset Filters
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Statistics -->
+<div class="stat-grid" style="margin-bottom: var(--spacing-xl);">
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="bi bi-camera-video"></i></div>
+        <p class="stat-label">Total Detections</p>
+        <p class="stat-value">{{ total_detections }}</p>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="bi bi-check2-circle"></i></div>
+        <p class="stat-label">Unique Goats</p>
+        <p class="stat-value">{{ unique_goats }}</p>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon yellow"><i class="bi bi-graph-up"></i></div>
+        <p class="stat-label">Avg Confidence</p>
+        <p class="stat-value">{{ avg_confidence|floatformat:1 }}%</p>
+    </div>
+</div>
+<!-- Detection List -->
+{% if detections %}
+<div class="row g-3">
+    {% for detection in detections %}
+    <div class="col-md-6">
+        <div class="content-card" style="margin-bottom: 0; height: 100%;">
+            <div class="card-header-custom">
+                <h5>
+                    {% if detection.goat %}
+                        <i class="bi bi-tag-fill"></i> {{ detection.goat.goat_id }}
+                    {% else %}
+                        <i class="bi bi-question-circle"></i> Unknown Goat
+                    {% endif %}
+                    {% if detection.is_new_goat %}
+                        <span class="badge badge-success">NEW</span>
+                    {% endif %}
+                </h5>
+                <small class="text-muted">{{ detection.timestamp|date:"M d, Y H:i:s" }}</small>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    {% if detection.crop_image %}
+                        <img src="{{ detection.crop_image.url }}"
+                             alt="Detection crop"
+                             class="crop-image-thumb"
+                             data-bs-toggle="modal"
+                             data-bs-target="#imageModal{{ detection.id }}">
+                    {% else %}
+                        <div class="detection-thumb-empty"><i class="bi bi-image"></i></div>
+                    {% endif %}
+                </div>
+                <div class="col-md-8">
+                    <div class="detection-meta-row">
+                        <strong>Camera:</strong> {{ detection.camera.name|default:"Unknown" }}
+                    </div>
+                    <div class="detection-meta-row">
+                        <strong>Detection Confidence:</strong> {{ detection.detection_confidence|floatformat:1 }}%
+                        <div class="confidence-bar mt-1">
+                            <div class="confidence-fill {% if detection.detection_confidence >= 80 %}confidence-high{% elif detection.detection_confidence >= 50 %}confidence-medium{% else %}confidence-low{% endif %}"
+                                 style="width: {{ detection.detection_confidence }}%"></div>
+                        </div>
+                    </div>
+                    {% if detection.goat and not detection.is_new_goat %}
+                    <div class="detection-meta-row">
+                        <strong>ID Confidence:</strong> {{ detection.identification_confidence|floatformat:1 }}%
+                        <div class="confidence-bar mt-1">
+                            <div class="confidence-fill {% if detection.identification_confidence >= 85 %}confidence-high{% elif detection.identification_confidence >= 70 %}confidence-medium{% else %}confidence-low{% endif %}"
+                                 style="width: {{ detection.identification_confidence }}%"></div>
+                        </div>
+                        <small class="text-muted">Similarity: {{ detection.similarity_score|floatformat:3 }}</small>
+                    </div>
+                    {% endif %}
+                    {% if detection.goat %}
+                    <a href="{% url 'iot:goat_detail_enhanced' detection.goat.goat_id %}" class="btn btn-outline mt-2">
+                        <i class="bi bi-eye"></i> View Goat Details
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if detection.crop_image %}
+        <div class="modal fade" id="imageModal{{ detection.id }}" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            Detection &mdash; {% if detection.goat %}{{ detection.goat.goat_id }}{% else %}Unknown{% endif %}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img src="{{ detection.crop_image.url }}" alt="Detection" class="modal-image">
+                    </div>
+                    <div class="modal-footer">
+                        <small class="text-muted">{{ detection.timestamp|date:"M d, Y H:i:s" }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">First</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+            </li>
+        {% endif %}
+        <li class="page-item active">
+            <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Last</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% else %}
+<div class="content-card">
+    <div class="empty-state">
+        <i class="bi bi-camera-video-off"></i>
+        <h5>No detections found</h5>
+        <p>Try widening the time range or clearing the filters above.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,693 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Live Goat Detection · GoHMoTech{% endblock %}
+
+{% block header_title %}Live Detection{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ---- Camera feed card ------------------------------------------------ */
+    .det-feed-card {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+    }
+    .det-feed-header {
+        background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+        color: #fff;
+        padding: 14px 18px;
+        font-weight: 600;
+        font-size: 17px;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+    .camera-feed-container {
+        position: relative;
+        /* Intentional media letterbox backdrop — reads correctly in both themes */
+        background: #000;
+        min-height: 460px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .camera-feed { width: 100%; height: auto; display: block; }
+    .camera-placeholder { color: var(--text-tertiary); text-align: center; padding: 60px 30px; }
+
+    .camera-controls { background: var(--card-bg-subtle); padding: 15px; border-top: 1px solid var(--border-color); }
+
+    /* Scoped override so the JS-managed status pill positions over the feed.
+       Kept identical to the original so existing JS (className reassignment) works. */
+    .status-badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        z-index: 10;
+        font-size: 13px;
+        padding: 6px 14px;
+    }
+
+    .config-section {
+        background: var(--card-bg);
+        border-radius: var(--radius-md);
+        padding: 15px;
+        margin-top: 12px;
+        border: 1px solid var(--border-color);
+    }
+
+    .goat-count-badge {
+        position: absolute;
+        bottom: 15px;
+        left: 15px;
+        background: var(--success);
+        color: #fff;
+        padding: 8px 20px;
+        border-radius: var(--radius-full);
+        font-weight: 600;
+        font-size: 15px;
+        box-shadow: var(--shadow-md);
+    }
+
+    /* ---- Active-model + status side panel -------------------------------- */
+    .model-line { display: flex; align-items: center; gap: .6rem; }
+    .model-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+    .model-dot.on  { background: var(--success); box-shadow: 0 0 0 3px var(--success-bg); }
+    .model-dot.off { background: var(--text-tertiary); }
+    .model-meta { font-size: .82rem; color: var(--text-secondary); }
+
+    /* Recent detection events list */
+    .event-list { max-height: 340px; overflow-y: auto; }
+    .event-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .75rem;
+        padding: .55rem .15rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .event-row:last-child { border-bottom: none; }
+    .event-time { font-size: .8rem; color: var(--text-tertiary); white-space: nowrap; }
+    .event-count { font-weight: 700; color: var(--text-primary); }
+
+    /* Chips in the page-actions row */
+    .model-chip { display: inline-flex; align-items: center; gap: 7px; font-size: .82rem; font-weight: 600; padding: 5px 12px; border-radius: var(--radius-full); }
+    .model-chip.active   { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+    .model-chip.inactive { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
+
+    /* Honesty note */
+    .det-note { background: var(--info-bg); border: 1px solid var(--info-border); border-radius: var(--radius-lg); padding: 1rem 1.15rem; color: var(--text-secondary); font-size: .9rem; }
+    .det-note summary { cursor: pointer; font-weight: 700; color: var(--info-text); list-style: none; display: flex; align-items: center; gap: .5rem; }
+    .det-note summary::-webkit-details-marker { display: none; }
+    .det-note[open] summary { margin-bottom: .6rem; }
+    .det-note ul { margin: .35rem 0 0; padding-left: 1.15rem; }
+    .det-note li { margin-bottom: .35rem; }
+
+    @media (max-width: 768px) {
+        .camera-feed-container { min-height: 280px; }
+        .camera-controls .btn-group { width: 100%; }
+        .status-badge { position: static; display: inline-block; margin-bottom: 8px; }
+        .goat-count-badge { position: static; display: block; margin: 10px; text-align: center; }
+    }
+    @media (max-width: 480px) {
+        .camera-feed-container { min-height: 220px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <!-- Header: subtitle + real active-model status + history link -->
+    <div class="page-header">
+        <div>
+            <div class="page-eyebrow">Computer Vision</div>
+            <p class="page-subtitle mb-0">Live camera monitoring and AI goat detection inside the goat house.</p>
+        </div>
+        <div class="page-actions">
+            {% if active_model %}
+                <span class="model-chip active" title="Active model reported by the server">
+                    <i class="bi bi-cpu"></i> {{ active_model.name }} v{{ active_model.version }}
+                </span>
+            {% else %}
+                <span class="model-chip inactive" title="No active detection model on the server">
+                    <i class="bi bi-exclamation-triangle"></i> No model loaded
+                </span>
+            {% endif %}
+            <a href="{% url 'ml_models:detection_history' %}" class="btn btn-outline btn-sm">
+                <i class="bi bi-clock-history"></i> History
+            </a>
+        </div>
+    </div>
+
+    <!-- Honest banners: only shown when there is a real problem to report -->
+    {% if not camera %}
+        <div class="alert alert-danger" role="alert">
+            <h6 class="mb-1"><i class="bi bi-camera-video-off"></i> No camera configured</h6>
+            <p class="mb-2">No IP camera is registered, so there is no live feed to monitor yet.</p>
+            <p class="mb-0 small">
+                Add one in
+                <a href="/admin/iot/ipcamera/" class="alert-link" target="_blank">Admin → IoT → IP Cameras</a>
+                (camera ID, type, IP address, and credentials if required), then reload this page.
+            </p>
+        </div>
+    {% endif %}
+    {% if not active_model %}
+        <div class="alert alert-warning" role="alert">
+            <h6 class="mb-1"><i class="bi bi-robot"></i> No active detection model</h6>
+            <p class="mb-0 small">
+                The camera can still stream, but detection requests will fail until a model is activated in
+                <a href="{% url 'ml_models:model_management' %}" class="alert-link">ML Model Management</a>.
+            </p>
+        </div>
+    {% endif %}
+
+    <!-- Live stats (honest: derived from real detections) -->
+    <div class="stat-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-check2-circle"></i></div>
+            <div class="stat-label">Goats detected (live)</div>
+            <div class="stat-value" id="total-goats">0</div>
+            <div class="stat-meta">Latest frame while connected</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon red"><i class="bi bi-person-bounding-box"></i></div>
+            <div class="stat-label">Persons detected (live)</div>
+            <div class="stat-value" id="total-persons">0</div>
+            <div class="stat-meta">Alerts the Security module</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="bi bi-camera-video"></i></div>
+            <div class="stat-label">Camera status</div>
+            <div class="stat-value" id="camera-status-text" style="font-size:1.5rem;">Offline</div>
+            <div class="stat-meta">This browser session</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="bi bi-speedometer2"></i></div>
+            <div class="stat-label">Detection confidence</div>
+            <div class="stat-value" id="avg-confidence">0%</div>
+            <div class="stat-meta">Average of the latest frame</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon yellow"><i class="bi bi-calendar-check"></i></div>
+            <div class="stat-label">Detections today</div>
+            <div class="stat-value" id="detections-today">0</div>
+            <div class="stat-meta">Saved in the last 24 hours</div>
+        </div>
+    </div>
+
+    <div class="page-section">
+        <div class="row g-4">
+            <!-- Camera feed (large, primary) -->
+            <div class="col-lg-8">
+                <div class="det-feed-card">
+                    <div class="det-feed-header">
+                        <i class="bi bi-house-door-fill"></i>
+                        {% if camera %}{{ camera.location }} — {{ camera.name }}{% else %}Inside Goat House — Main Camera{% endif %}
+                    </div>
+                    <div class="camera-feed-container" id="camera-main-container">
+                        <span class="status-badge badge bg-secondary" id="status-badge">Offline</span>
+                        <div class="camera-placeholder" id="camera-placeholder">
+                            <i class="bi bi-camera-video-off" style="font-size: 4.5rem;"></i>
+                            <h5 class="mt-3">Camera not connected</h5>
+                            <p class="text-tertiary mb-0">
+                                {% if camera %}Press "Start Detection" to connect.{% else %}Configure a camera to start monitoring.{% endif %}
+                            </p>
+                        </div>
+                        <img class="camera-feed d-none" id="camera-main-feed" alt="Goat House Camera">
+                        <span class="goat-count-badge d-none" id="main-goat-count">0 goats detected</span>
+                    </div>
+                    <div class="camera-controls">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <button class="btn btn-sm btn-outline" onclick="toggleSettings()">
+                                <i class="bi bi-gear" id="settings-icon"></i> <span id="settings-text">Camera settings</span>
+                            </button>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-success" id="start-camera-btn" onclick="connectCamera()">
+                                    <i class="bi bi-play-circle"></i> Start Detection
+                                </button>
+                                <button class="btn btn-danger" id="stop-camera-btn" onclick="stopCamera()">
+                                    <i class="bi bi-stop-circle"></i> Stop
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="camera-settings" class="config-section d-none">
+                            {% if camera %}
+                            <div class="alert alert-success mb-3" style="font-size:.85rem;">
+                                <i class="bi bi-check-circle-fill"></i>
+                                <strong>Camera configured:</strong> {{ camera.name }} ({{ camera.location }})<br>
+                                <small><strong>Type:</strong> {{ camera.camera_type|upper }} · <strong>IP:</strong> {{ camera.ip_address }}</small>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning mb-3" style="font-size:.85rem;">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <strong>No camera configured.</strong> Add one in the <a href="/admin/iot/ipcamera/" target="_blank">Admin Panel</a>.
+                            </div>
+                            {% endif %}
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold">Camera IP address</label>
+                                    <input type="text" class="form-control form-control-sm"
+                                           id="camera-ip" placeholder="e.g., 192.168.1.100"
+                                           value="{% if camera %}{{ camera.ip_address }}{% endif %}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold">Connection type</label>
+                                    <select class="form-select form-select-sm" id="camera-type">
+                                        <option value="http" {% if camera and camera.camera_type == 'http' %}selected{% endif %}>HTTP/WiFi Camera</option>
+                                        <option value="rtsp" {% if camera and camera.camera_type == 'rtsp' %}selected{% endif %}>RTSP Stream</option>
+                                        <option value="wifi" {% if camera and camera.camera_type == 'wifi' %}selected{% endif %}>WiFi Camera</option>
+                                        <option value="local">Local USB Camera</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold">Username</label>
+                                    <input type="text" class="form-control form-control-sm"
+                                           id="camera-user" placeholder="admin"
+                                           value="{% if camera %}{{ camera.username }}{% endif %}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold">Password</label>
+                                    <input type="password" class="form-control form-control-sm"
+                                           id="camera-pass" placeholder="******"
+                                           value="{% if camera %}{{ camera.password }}{% endif %}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold">Detection interval (sec)</label>
+                                    <input type="number" class="form-control form-control-sm"
+                                           id="detection-interval" value="{% if camera %}{{ camera.detection_interval_seconds }}{% else %}2{% endif %}" min="1" max="10">
+                                </div>
+                                <div class="col-12">
+                                    <div class="btn-group w-100">
+                                        <button class="btn btn-sm btn-outline" onclick="saveCameraConfig()">
+                                            <i class="bi bi-save"></i> Save configuration
+                                        </button>
+                                        <button class="btn btn-sm btn-outline" onclick="loadCameraConfig()">
+                                            <i class="bi bi-arrow-clockwise"></i> Load saved
+                                        </button>
+                                    </div>
+                                    <p class="text-tertiary small mb-0 mt-2">
+                                        <i class="bi bi-info-circle"></i>
+                                        Saved settings are stored in this browser only. The live feed uses the camera registered in the database.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Honesty note about how detection actually runs -->
+                <details class="det-note mt-3">
+                    <summary><i class="bi bi-info-circle"></i> How live detection works</summary>
+                    <ul>
+                        <li>The video stream is served by the system's camera engine. Detection runs <strong>on demand from this page</strong>: while it is open and the camera is connected, frames are sent to the server model every few seconds.</li>
+                        <li>Each detection is saved and appears in <strong>Recent detections</strong> and the history page.</li>
+                        <li><strong>Closing this page stops detection.</strong> Continuous background detection would require a server-side worker and is noted as a future step.</li>
+                    </ul>
+                </details>
+            </div>
+
+            <!-- Side panel: active model + recent detection events -->
+            <div class="col-lg-4">
+                <!-- Active model -->
+                <div class="content-card mb-4">
+                    <div class="card-header-custom">
+                        <h6 class="mb-0"><i class="bi bi-cpu"></i> Detection model</h6>
+                    </div>
+                    <div class="card-body-custom">
+                        {% if active_model %}
+                            <div class="model-line mb-2">
+                                <span class="model-dot on"></span>
+                                <div>
+                                    <div style="font-weight:700;">{{ active_model.name }}</div>
+                                    <div class="model-meta">Version {{ active_model.version }} · {{ active_model.get_category_display }}</div>
+                                </div>
+                            </div>
+                            <div class="model-meta">
+                                <div><i class="bi bi-diagram-3"></i> {{ active_model.get_model_type_display }}</div>
+                                <div><i class="bi bi-check2-square"></i> Status: {{ active_model.get_status_display }}</div>
+                            </div>
+                        {% else %}
+                            <div class="model-line mb-2">
+                                <span class="model-dot off"></span>
+                                <div style="font-weight:700;">No active model</div>
+                            </div>
+                            <p class="model-meta mb-0">
+                                Activate a validated model in
+                                <a href="{% url 'ml_models:model_management' %}">Model Management</a>
+                                to enable detection.
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Recent detection events (real, polled from the API) -->
+                <div class="content-card">
+                    <div class="card-header-custom d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-list-ul"></i> Recent detections</h6>
+                        <button class="btn btn-sm btn-outline" onclick="loadRecentEvents()" title="Refresh">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="event-list" id="recent-events">
+                            <div class="text-center py-4 text-tertiary">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <p class="mb-0 mt-2 small">Loading…</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let cameraConnected = false;
+    let detectionInterval = null;
+
+    // Toggle camera settings panel
+    function toggleSettings() {
+        const settingsDiv = document.getElementById('camera-settings');
+        const settingsText = document.getElementById('settings-text');
+        const settingsIcon = document.getElementById('settings-icon');
+
+        if (settingsDiv.classList.contains('d-none')) {
+            settingsDiv.classList.remove('d-none');
+            settingsText.textContent = 'Hide Settings';
+            settingsIcon.className = 'bi bi-gear-fill';
+        } else {
+            settingsDiv.classList.add('d-none');
+            settingsText.textContent = 'Camera settings';
+            settingsIcon.className = 'bi bi-gear';
+        }
+    }
+
+    // Connect to camera and start detection
+    function connectCamera() {
+        {% if camera %}
+        // Use configured camera from database
+        const intervalInput = document.getElementById('detection-interval');
+        const interval = parseInt(intervalInput.value) || 2;
+
+        const statusBadge = document.getElementById('status-badge');
+        const cameraStatusText = document.getElementById('camera-status-text');
+        const placeholder = document.getElementById('camera-placeholder');
+        const feedImg = document.getElementById('camera-main-feed');
+
+        // Show connecting status
+        statusBadge.textContent = 'Connecting...';
+        statusBadge.className = 'status-badge badge bg-warning';
+        cameraStatusText.textContent = 'Connecting';
+
+        // Set camera feed URL
+        feedImg.src = '{% url "iot:camera_feed" camera.id %}';
+
+        // Hide placeholder, show feed
+        placeholder.classList.add('d-none');
+        feedImg.classList.remove('d-none');
+
+        // Handle successful load
+        feedImg.onload = function() {
+            // Update status
+            statusBadge.textContent = 'Online';
+            statusBadge.className = 'status-badge badge bg-success';
+            cameraStatusText.textContent = 'Online';
+
+            cameraConnected = true;
+
+            // Start periodic detection
+            startDetection(interval);
+        };
+
+        // Handle load error
+        feedImg.onerror = function() {
+            statusBadge.textContent = 'Error';
+            statusBadge.className = 'status-badge badge bg-danger';
+            cameraStatusText.textContent = 'Connection Failed';
+
+            // Show placeholder again
+            placeholder.classList.remove('d-none');
+            feedImg.classList.add('d-none');
+
+            alert('Failed to connect to camera. Please check:\n- Camera IP: {{ camera.ip_address }}\n- Camera is powered on\n- Network connection');
+        };
+        {% else %}
+        // No camera configured in database
+        alert('No camera configured! Please add a camera in the Admin Panel:\n/admin/iot/ipcamera/');
+        {% endif %}
+    }
+
+    // Start periodic goat detection with YOLOv8
+    function startDetection(interval) {
+        if (detectionInterval) {
+            clearInterval(detectionInterval);
+        }
+
+        // Run YOLOv8 detection periodically
+        detectionInterval = setInterval(() => {
+            if (cameraConnected) {
+                runYOLOv8Detection();
+            }
+        }, interval * 1000);
+
+        // Run first detection immediately
+        if (cameraConnected) {
+            runYOLOv8Detection();
+        }
+    }
+
+    // Run YOLOv8 detection on current camera frame
+    function runYOLOv8Detection() {
+        const feedImg = document.getElementById('camera-main-feed');
+
+        // Create canvas to capture current frame
+        const canvas = document.createElement('canvas');
+        canvas.width = feedImg.naturalWidth || 640;
+        canvas.height = feedImg.naturalHeight || 480;
+        const ctx = canvas.getContext('2d');
+
+        // Draw current frame to canvas
+        ctx.drawImage(feedImg, 0, 0, canvas.width, canvas.height);
+
+        // Convert canvas to blob
+        canvas.toBlob(function(blob) {
+            if (!blob) {
+                console.error('Failed to capture frame');
+                return;
+            }
+
+            // Create FormData with the frame
+            const formData = new FormData();
+            formData.append('image', blob, 'frame.jpg');
+            {% if camera %}
+            formData.append('camera_id', '{{ camera.camera_id }}');
+            {% endif %}
+
+            // Send to YOLOv8 detection API
+            fetch('/ml/api/detect/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Detection error:', data.error);
+                    // Show error in UI
+                    document.getElementById('total-goats').textContent = 'Error';
+                    return;
+                }
+
+                // Update UI with real YOLOv8 results
+                const count = data.detection_count || 0;
+                const confidence = data.confidence ? Math.round(data.confidence * 100) : 0;
+
+                document.getElementById('total-goats').textContent = count;
+                document.getElementById('avg-confidence').textContent = confidence + '%';
+                document.getElementById('main-goat-count').textContent = `${count} goat${count !== 1 ? 's' : ''} detected`;
+                document.getElementById('main-goat-count').classList.remove('d-none');
+
+                // Persons run alongside goats when a person model is active.
+                const persons = (data.persons && data.persons.count) || 0;
+                document.getElementById('total-persons').textContent = persons;
+                if (persons > 0) {
+                    console.warn(`🧍 Person detection: ${persons} person(s) on this frame`);
+                }
+
+                // Log detections for debugging
+                if (count > 0) {
+                }
+
+                // Refresh the saved-events list and today's counter so the
+                // side panel reflects the detection that was just stored.
+                loadRecentEvents();
+                loadDetectionsToday();
+            })
+            .catch(error => {
+                console.error('Detection API error:', error);
+            });
+        }, 'image/jpeg', 0.85);
+    }
+
+    // Stop camera and detection
+    function stopCamera() {
+        const feedImg = document.getElementById('camera-main-feed');
+        const placeholder = document.getElementById('camera-placeholder');
+        const statusBadge = document.getElementById('status-badge');
+        const cameraStatusText = document.getElementById('camera-status-text');
+        const countBadge = document.getElementById('main-goat-count');
+
+        // Stop detection interval
+        if (detectionInterval) {
+            clearInterval(detectionInterval);
+            detectionInterval = null;
+        }
+
+        // Reset UI
+        feedImg.classList.add('d-none');
+        feedImg.src = '';
+        placeholder.classList.remove('d-none');
+        statusBadge.textContent = 'Offline';
+        statusBadge.className = 'status-badge badge bg-secondary';
+        cameraStatusText.textContent = 'Offline';
+        countBadge.classList.add('d-none');
+
+        cameraConnected = false;
+
+        document.getElementById('total-goats').textContent = '0';
+        document.getElementById('avg-confidence').textContent = '0%';
+    }
+
+    // Save camera configuration to localStorage
+    function saveCameraConfig() {
+        const config = {
+            ip: document.getElementById('camera-ip').value,
+            type: document.getElementById('camera-type').value,
+            user: document.getElementById('camera-user').value,
+            pass: document.getElementById('camera-pass').value,
+            interval: document.getElementById('detection-interval').value
+        };
+        localStorage.setItem('goatCameraConfig', JSON.stringify(config));
+        alert('Camera configuration saved successfully!');
+    }
+
+    // Load camera configuration from localStorage
+    function loadCameraConfig() {
+        const savedConfig = localStorage.getItem('goatCameraConfig');
+        if (savedConfig) {
+            const config = JSON.parse(savedConfig);
+            document.getElementById('camera-ip').value = config.ip || '';
+            document.getElementById('camera-type').value = config.type || 'http';
+            document.getElementById('camera-user').value = config.user || '';
+            document.getElementById('camera-pass').value = config.pass || '';
+            document.getElementById('detection-interval').value = config.interval || '2';
+            alert('Camera configuration loaded!');
+        } else {
+            alert('No saved configuration found');
+        }
+    }
+
+    // Get CSRF token for form submissions
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // ---- Today's detection count (FIXED endpoint) --------------------------
+    // Correct route is /ml/api/detections/stats/ (router is mounted under /ml/).
+    function loadDetectionsToday() {
+        fetch('/ml/api/detections/stats/?hours=24')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('detections-today').textContent = data.total_detections || 0;
+            })
+            .catch(error => console.error('Error fetching detection stats:', error));
+    }
+
+    // ---- Recent detection events (real, from DetectionViewSet.recent) ------
+    function loadRecentEvents() {
+        const container = document.getElementById('recent-events');
+        fetch('/ml/api/detections/recent/?hours=24')
+            .then(response => response.json())
+            .then(data => {
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML =
+                        '<div class="text-center py-4 text-tertiary">' +
+                        '<i class="bi bi-inbox" style="font-size:2rem;"></i>' +
+                        '<p class="mb-0 mt-2 small">No detections in the last 24 hours</p></div>';
+                    return;
+                }
+
+                // Show the 15 most recent (API returns newest first).
+                const rows = data.slice(0, 15).map(d => {
+                    const t = d.timestamp ? new Date(d.timestamp) : null;
+                    const timeStr = t ? t.toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : '—';
+                    const count = (typeof d.goat_count === 'number') ? d.goat_count : 0;
+                    const conf = (typeof d.confidence === 'number') ? Math.round(d.confidence * 100) : 0;
+                    const src = d.camera_name ? d.camera_name : 'Test upload';
+                    return (
+                        '<div class="event-row">' +
+                            '<div>' +
+                                '<span class="event-count">' + count + ' goat' + (count !== 1 ? 's' : '') + '</span>' +
+                                '<div class="event-time">' + src + '</div>' +
+                            '</div>' +
+                            '<div class="text-end">' +
+                                '<span class="badge badge-info">' + conf + '%</span>' +
+                                '<div class="event-time">' + timeStr + '</div>' +
+                            '</div>' +
+                        '</div>'
+                    );
+                }).join('');
+                container.innerHTML = rows;
+            })
+            .catch(error => {
+                console.error('Error fetching recent detections:', error);
+                container.innerHTML =
+                    '<div class="text-center py-4 text-tertiary">' +
+                    '<i class="bi bi-wifi-off" style="font-size:2rem;"></i>' +
+                    '<p class="mb-0 mt-2 small">Could not load recent detections</p></div>';
+            });
+    }
+
+    // Initial load + light polling for the events list
+    loadDetectionsToday();
+    loadRecentEvents();
+    setInterval(loadRecentEvents, 20000);
+
+    // Auto-load saved configuration on page load
+    window.addEventListener('load', function() {
+        {% if camera %}
+        // Auto-connect to configured camera
+        setTimeout(() => connectCamera(), 500);
+        {% else %}
+        // Try to load saved config from localStorage
+        const savedConfig = localStorage.getItem('goatCameraConfig');
+        if (savedConfig) {
+            const config = JSON.parse(savedConfig);
+            document.getElementById('camera-ip').value = config.ip || '';
+            document.getElementById('camera-type').value = config.type || 'http';
+            document.getElementById('camera-user').value = config.user || '';
+            document.getElementById('camera-pass').value = config.pass || '';
+            document.getElementById('detection-interval').value = config.interval || '2';
+        }
+        {% endif %}
+    });
+</script>
+{% endblock %}

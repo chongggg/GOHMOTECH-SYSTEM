@@ -1,0 +1,27 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Model Management - GoHMoTech{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2><i class="bi bi-cpu"></i> ML Model Management</h2>
+    <p class="text-muted">Manage and configure AI detection models</p>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-cpu" style="font-size: 4rem; color: #ccc;"></i>
+                    <h4 class="mt-3 text-muted">ML Models</h4>
+                    <p class="text-muted">Upload and manage your trained goat detection models</p>
+                    <div class="mt-4">
+                        <button class="btn btn-primary">
+                            <i class="bi bi-upload"></i> Upload Model
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

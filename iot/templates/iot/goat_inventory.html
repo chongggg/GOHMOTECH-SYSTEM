@@ -1,0 +1,299 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Goat Inventory - GoHMoTech{% endblock %}
+{% block header_title %}Goat Inventory{% endblock %}
+
+{% block extra_css %}
+    /* ============================================================
+       Goat Inventory — page-scoped styles (all under .inv-page)
+       Reuses global design tokens; adds no global rules.
+       Livestock record management only — no AI / detection / alerts.
+       ============================================================ */
+
+    /* Fill the full available width so no blank gap sits on the right.
+       (The page shell is full-width; the old fixed max-width left the
+       content pinned to the left with dead space beside it.) */
+    .inv-page { width: 100%; }
+
+    /* Touch-friendly controls for farmers/caretakers */
+    .inv-page .btn { min-height: 46px; display: inline-flex; align-items: center; gap: 0.45rem; }
+    .inv-page .btn-sm { min-height: 42px; }
+    .inv-page .form-select,
+    .inv-page .form-control { min-height: 46px; font-size: 1rem; }
+
+    /* Filter bar */
+    .inv-filter .form-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.35rem;
+    }
+
+    /* Goat card grid — fills the whole row, cards flex to available space */
+    .goat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: var(--spacing-lg);
+    }
+    .goat-card-modern {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-lg);
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+        transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    }
+    .goat-card-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--primary-500);
+    }
+    .goat-card-top { display: flex; align-items: center; gap: var(--spacing-md); }
+    .goat-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--border-color);
+        flex-shrink: 0;
+    }
+    .goat-avatar-placeholder {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--card-bg-subtle);
+        border: 2px solid var(--border-color);
+        color: var(--text-tertiary);
+        font-size: 1.6rem;
+        flex-shrink: 0;
+    }
+    .goat-card-id {
+        font-family: var(--font-heading, inherit);
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.35rem;
+    }
+    .goat-card-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+    .goat-card-meta .meta-row { display: flex; align-items: center; gap: 0.5rem; }
+    .goat-card-meta .meta-row i { color: var(--text-tertiary); width: 1rem; text-align: center; }
+    .goat-card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: stretch;
+        gap: var(--spacing-sm);
+        padding-top: var(--spacing-md);
+        border-top: 1px solid var(--border-color);
+    }
+    .goat-card-footer .btn { flex: 1 1 auto; justify-content: center; }
+
+    /* Status pills */
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.3rem 0.7rem;
+        border-radius: var(--radius-full);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: capitalize;
+    }
+    .status-pill::before {
+        content: "";
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+    .status-active  { background: var(--success-bg); color: var(--success); }
+    .status-sold    { background: var(--info-bg);    color: var(--info-text); }
+    .status-dead    { background: var(--danger-bg);  color: var(--danger); }
+    .status-missing { background: var(--warning-bg); color: var(--warning); }
+
+    /* Loading overlay for filter submits */
+    .inv-loading {
+        position: fixed; inset: 0;
+        background: rgba(15, 23, 42, 0.35);
+        backdrop-filter: blur(2px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+    }
+    .inv-loading.show { display: flex; }
+    .inv-spinner {
+        width: 48px; height: 48px;
+        border: 4px solid rgba(255,255,255,0.4);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: invSpin 0.7s linear infinite;
+    }
+    @keyframes invSpin { to { transform: rotate(360deg); } }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+        .goat-grid { grid-template-columns: 1fr; }
+        .goat-card-footer { flex-direction: column; align-items: stretch; }
+        .goat-card-footer .btn { width: 100%; justify-content: center; }
+    }
+{% endblock %}
+
+{% block content %}
+<div class="inv-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <div class="page-eyebrow">Livestock</div>
+            <h1>Goat Inventory</h1>
+            <p class="page-subtitle">Livestock records — view, search, and manage your herd</p>
+        </div>
+        <div class="page-actions">
+            <a href="{% url 'iot:add_goat' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add Goat
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="stat-grid" style="margin-bottom: var(--spacing-xl);">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="bi bi-box-seam"></i></div>
+            <p class="stat-label">Total Goats</p>
+            <p class="stat-value">{{ total_goats }}</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+            <p class="stat-label">Active</p>
+            <p class="stat-value">{{ active_goats }}</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon yellow"><i class="bi bi-exclamation-circle"></i></div>
+            <p class="stat-label">Missing</p>
+            <p class="stat-value">{{ missing_goats_count }}</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="bi bi-tag"></i></div>
+            <p class="stat-label">Sold</p>
+            <p class="stat-value">{{ sold_goats }}</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="content-card inv-filter" style="margin-bottom: var(--spacing-xl);">
+        <form method="get" id="filterForm">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label"><i class="bi bi-funnel"></i> Status</label>
+                    <select name="status" class="form-select" onchange="document.getElementById('filterForm').submit()">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                        <option value="missing" {% if status_filter == 'missing' %}selected{% endif %}>Missing</option>
+                        <option value="sold" {% if status_filter == 'sold' %}selected{% endif %}>Sold</option>
+                        <option value="dead" {% if status_filter == 'dead' %}selected{% endif %}>Dead</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-search"></i> Search</label>
+                    <input type="text" name="search" class="form-control" placeholder="Search by ID or name..." value="{{ search_query }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Goat Grid -->
+    {% if goats %}
+        <div class="goat-grid">
+            {% for goat in goats %}
+            <div class="goat-card-modern">
+                <div class="goat-card-top">
+                    {% if goat.latest_image %}
+                        <img src="{{ goat.latest_image.image.url }}" alt="{{ goat.goat_id }}" class="goat-avatar">
+                    {% else %}
+                        <div class="goat-avatar-placeholder"><i class="bi bi-camera"></i></div>
+                    {% endif %}
+                    <div>
+                        <div class="goat-card-id">{{ goat.goat_id }}</div>
+                        <span class="status-pill status-{{ goat.status }}">{{ goat.get_status_display }}</span>
+                    </div>
+                </div>
+
+                <div class="goat-card-meta">
+                    {% if goat.name %}
+                    <div class="meta-row"><i class="bi bi-card-text"></i> {{ goat.name }}</div>
+                    {% endif %}
+                    <div class="meta-row"><i class="bi bi-tag"></i> {{ goat.get_breed_display }}</div>
+                    <div class="meta-row"><i class="bi bi-gender-ambiguous"></i> {{ goat.get_gender_display }}</div>
+                    <div class="meta-row"><i class="bi bi-hourglass-split"></i> {{ goat.age_display }}</div>
+                    <div class="meta-row"><i class="bi bi-calendar3"></i> Added {{ goat.date_added|date:"M d, Y" }}</div>
+                    {% if goat.ble_beacon %}
+                    <div class="meta-row"><i class="bi bi-broadcast-pin"></i> {{ goat.ble_beacon.device_name|default:'BLE tracker' }} · {{ goat.ble_beacon.enabled|yesno:'Enabled,Disabled' }}</div>
+                    {% else %}
+                    <div class="meta-row text-muted"><i class="bi bi-broadcast"></i> No BLE tracker</div>
+                    {% endif %}
+                </div>
+
+                <div class="goat-card-footer">
+                    <a href="{% url 'iot:goat_detail_enhanced' goat.goat_id %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-pencil-square"></i> Manage
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="content-card">
+            <div class="empty-state">
+                <i class="bi bi-inbox"></i>
+                <h5>No goats found</h5>
+                <p>Try adjusting your filters, or add your first goat to get started.</p>
+                <a href="{% url 'iot:add_goat' %}" class="btn btn-primary mt-3">
+                    <i class="bi bi-plus-circle"></i> Add Goat
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+
+<!-- Loading overlay (shown on filter submit) -->
+<div class="inv-loading" id="invLoading" aria-hidden="true">
+    <div class="inv-spinner" role="status" aria-label="Loading"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Loading overlay on filter form submission
+    const overlay = document.getElementById('invLoading');
+    const form = document.getElementById('filterForm');
+    if (form && overlay) {
+        form.addEventListener('submit', () => overlay.classList.add('show'));
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,4 @@
+# Standalone BLE receiver service dependencies.
+bleak>=3.0,<4.0
+python-dotenv>=1.0
+requests>=2.31

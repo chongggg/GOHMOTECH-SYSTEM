@@ -1,0 +1,16 @@
+.marketplace-hero { background: linear-gradient(135deg, #12372a, #2d6a4f); color: #fff; border-radius: 1rem; padding: 2rem; }
+.marketplace-card { border: 1px solid var(--border-color, #dee2e6); border-radius: 1rem; overflow: hidden; background: var(--card-bg, #fff); height: 100%; }
+.marketplace-card img, .goat-hero-image { width: 100%; height: 230px; object-fit: cover; background: #e9ecef; }
+.goat-placeholder { height: 230px; display: grid; place-items: center; background: #e9ecef; color: #6c757d; font-size: 3rem; }
+.status-pill { display: inline-block; border-radius: 999px; padding: .3rem .75rem; font-size: .8rem; font-weight: 700; text-transform: uppercase; }
+.status-available { background: #d1e7dd; color: #0f5132; }
+.status-reserved { background: #fff3cd; color: #664d03; }
+.status-sold { background: #e2e3e5; color: #41464b; }
+.status-draft { background: #cff4fc; color: #055160; }
+.message-thread { max-height: 520px; overflow-y: auto; padding: 1rem; background: var(--card-bg-subtle, #f8f9fa); border-radius: .75rem; }
+.message-bubble { max-width: 78%; padding: .75rem 1rem; border-radius: 1rem; margin-bottom: .75rem; background: #fff; border: 1px solid #dee2e6; }
+.message-bubble.mine { margin-left: auto; background: #d1e7dd; border-color: #badbcc; }
+.market-stat { border-radius: 1rem; padding: 1.25rem; background: var(--card-bg, #fff); border: 1px solid var(--border-color, #dee2e6); }
+.market-table-wrap { overflow-x: auto; }
+.filter-panel { border-radius: 1rem; padding: 1rem; background: var(--card-bg, #fff); border: 1px solid var(--border-color, #dee2e6); }
+

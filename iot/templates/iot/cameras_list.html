@@ -1,0 +1,110 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}IP Cameras - GoHMoTech{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="bi bi-camera-video-fill text-info"></i> IP Cameras</h2>
+            <p class="text-muted">Manage and monitor all IP cameras on the farm</p>
+        </div>
+    </div>
+
+    <!-- Camera Statistics -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Total Cameras</h6>
+                    <h3 class="mb-0">{{ total_cameras }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Active</h6>
+                    <h3 class="mb-0 text-success">{{ active_cameras }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Online</h6>
+                    <h3 class="mb-0 text-primary">{{ online_cameras }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Inactive</h6>
+                    <h3 class="mb-0 text-warning">{{ inactive_cameras }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Grid -->
+    <div class="row g-4">
+        {% for camera in cameras %}
+        <div class="col-lg-6 col-xl-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="bi bi-camera-fill"></i> 
+                        <strong>{{ camera.name }}</strong>
+                    </span>
+                    <span class="badge {% if camera.status == 'active' %}bg-success{% elif camera.status == 'error' %}bg-danger{% else %}bg-secondary{% endif %}">
+                        {{ camera.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div style="position: relative; background: #000; min-height: 250px;">
+                        {% if camera.is_active %}
+                            <img src="{% url 'iot:camera_feed' camera.id %}"
+                                 alt="{{ camera.name }}"
+                                 style="width: 100%; height: auto; display: block;"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #1a1a1a; color: white; align-items: center; justify-content: center; flex-direction: column;">
+                                <i class="bi bi-camera-video-off-fill" style="font-size: 3rem;"></i>
+                                <p class="mt-2">Camera Offline</p>
+                            </div>
+                        {% else %}
+                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                                <i class="bi bi-camera-video-off-fill" style="font-size: 3rem;"></i>
+                                <p class="mt-2">Camera Inactive</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small class="text-muted">
+                            <i class="bi bi-geo-alt-fill"></i> {{ camera.location }}
+                        </small>
+                        <small class="text-muted">
+                            <i class="bi bi-ethernet"></i> {{ camera.ip_address }}:{{ camera.port }}
+                        </small>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="badge bg-secondary">{{ camera.get_camera_type_display }}</span>
+                        <a href="{% url 'iot:camera_detail' camera.id %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-arrows-fullscreen"></i> View
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> No cameras configured yet.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,754 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Test Goat Recognition - GoHMoTech{% endblock %}
+
+{% block extra_css %}
+<style>
+    .recognition-page {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .panel {
+        background: #ffffff;
+        border: 1px solid #e6ecf4;
+        border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+        padding: 1.2rem;
+    }
+
+    .panel h5 {
+        margin-bottom: 0.4rem;
+    }
+
+    .muted-note {
+        color: #6b7280;
+        font-size: 0.92rem;
+    }
+
+    .source-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.65rem;
+        margin-bottom: 0.95rem;
+    }
+
+    .source-option {
+        border: 1px solid #d9e2ee;
+        border-radius: 12px;
+        padding: 0.8rem;
+        display: flex;
+        gap: 0.55rem;
+        align-items: flex-start;
+        cursor: pointer;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .source-option:has(input:checked) {
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.16);
+        background: #f6fbff;
+    }
+
+    .source-option input {
+        margin-top: 0.2rem;
+    }
+
+    .source-option-title {
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .source-option-sub {
+        color: #6b7280;
+        font-size: 0.8rem;
+        margin-top: 0.15rem;
+    }
+
+    .source-section {
+        border: 1px dashed #d6dde8;
+        border-radius: 12px;
+        padding: 0.9rem;
+        background: #fcfdff;
+    }
+
+    .source-section.hidden {
+        display: none;
+    }
+
+    .media-preview-wrap {
+        position: relative;
+        width: 100%;
+        min-height: 260px;
+        border-radius: 12px;
+        border: 1px solid #dbe5f2;
+        background: #f8fbff;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+    }
+
+    .media-preview-wrap img,
+    .media-preview-wrap video {
+        max-width: 100%;
+        max-height: 520px;
+        object-fit: contain;
+        display: none;
+    }
+
+    .media-preview-empty {
+        text-align: center;
+        color: #64748b;
+        padding: 1.2rem;
+    }
+
+    .status-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+    }
+
+    .status-item {
+        background: #f8fafc;
+        border: 1px solid #e5eaf2;
+        border-radius: 10px;
+        padding: 0.75rem;
+    }
+
+    .status-item h6 {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+        margin-bottom: 0.2rem;
+    }
+
+    .status-value {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #0f172a;
+    }
+
+    .status-value.success { color: #15803d; }
+    .status-value.warning { color: #b45309; }
+    .status-value.error { color: #b91c1c; }
+    .status-value.info { color: #0369a1; }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.6rem;
+        margin-top: 0.8rem;
+    }
+
+    .summary-card {
+        border-radius: 10px;
+        border: 1px solid #e3eaf4;
+        background: #ffffff;
+        padding: 0.7rem;
+    }
+
+    .summary-label {
+        font-size: 0.78rem;
+        color: #64748b;
+    }
+
+    .summary-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .result-table-wrap {
+        overflow-x: auto;
+        border: 1px solid #e1e8f2;
+        border-radius: 10px;
+        margin-top: 0.85rem;
+    }
+
+    .result-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .result-table th,
+    .result-table td {
+        border-bottom: 1px solid #edf2f8;
+        padding: 0.62rem 0.7rem;
+        font-size: 0.86rem;
+        vertical-align: top;
+        white-space: nowrap;
+    }
+
+    .result-table th {
+        background: #f8fbff;
+        color: #334155;
+        font-weight: 600;
+    }
+
+    .badge-status {
+        border-radius: 999px;
+        padding: 0.22rem 0.58rem;
+        font-weight: 600;
+        font-size: 0.72rem;
+    }
+
+    .badge-recognized {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-unknown {
+        background: #e0f2fe;
+        color: #075985;
+    }
+
+    .result-panel {
+        min-height: 360px;
+    }
+
+    .loading-ring {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid #dbeafe;
+        border-top-color: #0284c7;
+        display: inline-block;
+        animation: spin 0.9s linear infinite;
+        margin-right: 0.35rem;
+        vertical-align: -3px;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 1100px) {
+        .source-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .summary-cards {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 760px) {
+        .status-grid,
+        .summary-cards {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4 recognition-page">
+    <div class="mb-4">
+        <h2 class="mb-1"><i class="bi bi-fingerprint text-primary"></i> Test Goat Recognition</h2>
+        <p class="muted-note mb-0">Verify whether goats registered in your gallery can be recognized from uploaded or existing media before live-camera deployment.</p>
+    </div>
+
+    <div class="alert {% if active_model %}alert-success{% else %}alert-warning{% endif %}">
+        {% if active_model %}
+            <i class="bi bi-check-circle-fill"></i>
+            <strong>Active Model:</strong> {{ active_model.name }} v{{ active_model.version }} ({{ active_model.model_type }})
+        {% else %}
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <strong>No active model loaded.</strong> Run <code>python load_goat_model.py</code> before recognition testing.
+        {% endif %}
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-xl-7">
+            <div class="panel">
+                <h5><i class="bi bi-collection-play"></i> Test Media Input</h5>
+                <p class="muted-note">Choose one source, provide media, then run recognition against registered goats.</p>
+
+                <div class="source-grid" id="sourceGrid">
+                    <label class="source-option">
+                        <input type="radio" name="sourceType" value="upload_image" checked>
+                        <div>
+                            <div class="source-option-title">Upload Image</div>
+                            <div class="source-option-sub">Single frame recognition test</div>
+                        </div>
+                    </label>
+                    <label class="source-option">
+                        <input type="radio" name="sourceType" value="upload_video">
+                        <div>
+                            <div class="source-option-title">Upload Video</div>
+                            <div class="source-option-sub">System picks strongest frame with goats</div>
+                        </div>
+                    </label>
+                    <label class="source-option">
+                        <input type="radio" name="sourceType" value="existing">
+                        <div>
+                            <div class="source-option-title">Use Existing Files</div>
+                            <div class="source-option-sub">Registered goat gallery or media folder files</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="source-section" id="uploadImageSection">
+                    <label for="imageInput" class="form-label fw-semibold">Image file</label>
+                    <input id="imageInput" class="form-control" type="file" accept="image/*">
+                    <div class="muted-note mt-2">Recommended: clear goat visibility and side profile.</div>
+                </div>
+
+                <div class="source-section hidden" id="uploadVideoSection">
+                    <label for="videoInput" class="form-label fw-semibold">Video file</label>
+                    <input id="videoInput" class="form-control" type="file" accept="video/*">
+                    <div class="muted-note mt-2">The system samples several frames and analyzes the best detected frame.</div>
+                </div>
+
+                <div class="source-section hidden" id="existingSection">
+                    <label for="existingMediaSelect" class="form-label fw-semibold">Select existing media</label>
+                    <select id="existingMediaSelect" class="form-select">
+                        <option value="">Select media file...</option>
+                        {% if registered_media_options %}
+                            <optgroup label="Registered Goat Gallery">
+                                {% for item in registered_media_options %}
+                                    <option value="{{ item.path }}" data-media-url="{{ item.url }}" data-media-type="{{ item.media_type }}">{{ item.label }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endif %}
+                        {% if library_media_options %}
+                            <optgroup label="Media Library">
+                                {% for item in library_media_options %}
+                                    <option value="{{ item.path }}" data-media-url="{{ item.url }}" data-media-type="{{ item.media_type }}">{{ item.label }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endif %}
+                    </select>
+                    <div class="muted-note mt-2">Includes image and video files discovered under your media folder.</div>
+                </div>
+
+                <div class="row g-2 mt-2">
+                    <div class="col-md-6">
+                        <label for="matchThreshold" class="form-label fw-semibold">Match threshold</label>
+                        <input id="matchThreshold" type="range" class="form-range" min="0.55" max="0.95" step="0.01" value="0.85">
+                        <div class="muted-note">Similarity required for a recognized goat: <strong id="thresholdValue">85%</strong></div>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end gap-2">
+                        <button id="runRecognitionBtn" class="btn btn-primary w-100" type="button">
+                            <i class="bi bi-play-circle"></i> Run Test Recognition
+                        </button>
+                        <button id="resetBtn" class="btn btn-outline-secondary" type="button">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel mt-3">
+                <h5><i class="bi bi-image"></i> Media Preview With Bounding Box</h5>
+                <p class="muted-note">This preview updates with recognition overlays after processing.</p>
+                <div class="media-preview-wrap" id="mediaPreviewWrap">
+                    <div id="mediaPreviewEmpty" class="media-preview-empty">
+                        <i class="bi bi-camera2" style="font-size: 1.8rem;"></i>
+                        <div class="mt-2">No media selected yet.</div>
+                    </div>
+                    <img id="previewImage" alt="Recognition preview">
+                    <video id="previewVideo" controls muted></video>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-5">
+            <div class="panel result-panel" id="resultPanel">
+                <h5><i class="bi bi-clipboard2-data"></i> Test Recognition Result</h5>
+                <p class="muted-note">Focused diagnostic output for detection and registered-goat recognition validation.</p>
+
+                <div class="status-grid" id="statusGrid">
+                    <div class="status-item">
+                        <h6>Detection Status</h6>
+                        <div class="status-value info" id="statusDetection">Waiting</div>
+                    </div>
+                    <div class="status-item">
+                        <h6>Recognition Status</h6>
+                        <div class="status-value info" id="statusRecognition">Waiting</div>
+                    </div>
+                    <div class="status-item">
+                        <h6>Processing Status</h6>
+                        <div class="status-value info" id="statusProcessing">Idle</div>
+                    </div>
+                    <div class="status-item">
+                        <h6>Error</h6>
+                        <div class="status-value" id="statusError">None</div>
+                    </div>
+                </div>
+
+                <p class="muted-note mt-2 mb-0" id="referenceDbInfo">Reference DB: waiting for test run.</p>
+
+                <div class="summary-cards" id="summaryCards">
+                    <div class="summary-card">
+                        <div class="summary-label">Detected Goats</div>
+                        <div class="summary-value" id="metricDetected">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Recognized Goats</div>
+                        <div class="summary-value" id="metricRecognized">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Unknown Goats</div>
+                        <div class="summary-value" id="metricUnknown">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Detection Confidence</div>
+                        <div class="summary-value" id="metricConfidence">0%</div>
+                    </div>
+                </div>
+
+                <div class="result-table-wrap" id="resultTableWrap">
+                    <table class="result-table" id="resultTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Status</th>
+                                <th>Goat Name</th>
+                                <th>Goat ID</th>
+                                <th>Matched From</th>
+                                <th>Detection Confidence</th>
+                                <th>Match %</th>
+                                <th>Bounding Box</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultTableBody">
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">Run a test to see recognition results.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const sourceInputs = document.querySelectorAll('input[name="sourceType"]');
+    const uploadImageSection = document.getElementById('uploadImageSection');
+    const uploadVideoSection = document.getElementById('uploadVideoSection');
+    const existingSection = document.getElementById('existingSection');
+
+    const imageInput = document.getElementById('imageInput');
+    const videoInput = document.getElementById('videoInput');
+    const existingMediaSelect = document.getElementById('existingMediaSelect');
+    const matchThreshold = document.getElementById('matchThreshold');
+    const thresholdValue = document.getElementById('thresholdValue');
+    const runRecognitionBtn = document.getElementById('runRecognitionBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const previewImage = document.getElementById('previewImage');
+    const previewVideo = document.getElementById('previewVideo');
+    const mediaPreviewEmpty = document.getElementById('mediaPreviewEmpty');
+
+    const statusDetection = document.getElementById('statusDetection');
+    const statusRecognition = document.getElementById('statusRecognition');
+    const statusProcessing = document.getElementById('statusProcessing');
+    const statusError = document.getElementById('statusError');
+    const referenceDbInfo = document.getElementById('referenceDbInfo');
+
+    const metricDetected = document.getElementById('metricDetected');
+    const metricRecognized = document.getElementById('metricRecognized');
+    const metricUnknown = document.getElementById('metricUnknown');
+    const metricConfidence = document.getElementById('metricConfidence');
+    const resultTableBody = document.getElementById('resultTableBody');
+
+    let latestDetections = [];
+    let latestSourceFrame = '';
+
+    function setSourceMode() {
+        const sourceType = getSelectedSourceType();
+        uploadImageSection.classList.toggle('hidden', sourceType !== 'upload_image');
+        uploadVideoSection.classList.toggle('hidden', sourceType !== 'upload_video');
+        existingSection.classList.toggle('hidden', sourceType !== 'existing');
+        renderLocalPreview();
+    }
+
+    function getSelectedSourceType() {
+        const selected = document.querySelector('input[name="sourceType"]:checked');
+        return selected ? selected.value : 'upload_image';
+    }
+
+    function setStatus(node, value, level) {
+        node.textContent = value;
+        node.classList.remove('success', 'warning', 'error', 'info');
+        if (level) {
+            node.classList.add(level);
+        }
+    }
+
+    function resetStatuses() {
+        setStatus(statusDetection, 'Waiting', 'info');
+        setStatus(statusRecognition, 'Waiting', 'info');
+        setStatus(statusProcessing, 'Idle', 'info');
+        setStatus(statusError, 'None', '');
+
+        metricDetected.textContent = '0';
+        metricRecognized.textContent = '0';
+        metricUnknown.textContent = '0';
+        metricConfidence.textContent = '0%';
+        referenceDbInfo.textContent = 'Reference DB: waiting for test run.';
+
+        latestDetections = [];
+        latestSourceFrame = '';
+        resultTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Run a test to see recognition results.</td></tr>';
+    }
+
+    function showImagePreview(src) {
+        previewVideo.pause();
+        previewVideo.removeAttribute('src');
+        previewVideo.style.display = 'none';
+
+        previewImage.src = src;
+        previewImage.style.display = 'block';
+        mediaPreviewEmpty.style.display = 'none';
+    }
+
+    function showVideoPreview(src) {
+        previewImage.removeAttribute('src');
+        previewImage.style.display = 'none';
+
+        previewVideo.src = src;
+        previewVideo.style.display = 'block';
+        mediaPreviewEmpty.style.display = 'none';
+    }
+
+    function clearPreview() {
+        previewImage.removeAttribute('src');
+        previewImage.style.display = 'none';
+        previewVideo.pause();
+        previewVideo.removeAttribute('src');
+        previewVideo.style.display = 'none';
+        mediaPreviewEmpty.style.display = 'block';
+    }
+
+    function renderLocalPreview() {
+        const sourceType = getSelectedSourceType();
+
+        if (sourceType === 'upload_image') {
+            const file = imageInput.files[0];
+            if (!file) {
+                clearPreview();
+                return;
+            }
+            showImagePreview(URL.createObjectURL(file));
+            return;
+        }
+
+        if (sourceType === 'upload_video') {
+            const file = videoInput.files[0];
+            if (!file) {
+                clearPreview();
+                return;
+            }
+            showVideoPreview(URL.createObjectURL(file));
+            return;
+        }
+
+        const selectedOption = existingMediaSelect.options[existingMediaSelect.selectedIndex];
+        if (!selectedOption || !selectedOption.value) {
+            clearPreview();
+            return;
+        }
+
+        const mediaUrl = selectedOption.dataset.mediaUrl;
+        const mediaType = selectedOption.dataset.mediaType;
+        if (!mediaUrl) {
+            clearPreview();
+            return;
+        }
+
+        if (mediaType === 'video') {
+            showVideoPreview(mediaUrl);
+        } else {
+            showImagePreview(mediaUrl);
+        }
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function validateInput() {
+        const sourceType = getSelectedSourceType();
+        if (sourceType === 'upload_image' && !imageInput.files[0]) {
+            return 'Please upload an image file.';
+        }
+        if (sourceType === 'upload_video' && !videoInput.files[0]) {
+            return 'Please upload a video file.';
+        }
+        if (sourceType === 'existing' && !existingMediaSelect.value) {
+            return 'Please choose an existing media file.';
+        }
+        return '';
+    }
+
+    function buildStatusLabel(recognitionStatus) {
+        if (recognitionStatus === 'recognized') return ['Recognized Goat', 'success'];
+        if (recognitionStatus === 'partial') return ['Partial Match', 'warning'];
+        if (recognitionStatus === 'unknown') return ['Unknown Goat', 'warning'];
+        if (recognitionStatus === 'no_detection') return ['No Goat Detected', 'info'];
+        if (recognitionStatus === 'failed') return ['Recognition Failed', 'error'];
+        return ['Waiting', 'info'];
+    }
+
+    function renderTableRows(detections) {
+        if (!detections || detections.length === 0) {
+            resultTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No detection rows returned.</td></tr>';
+            return;
+        }
+
+        const rows = detections.map((row) => {
+            const badgeClass = row.recognition_status === 'recognized' ? 'badge-recognized' : 'badge-unknown';
+            const goatName = row.goat_name || 'Unknown Goat';
+            const goatId = row.goat_id || '-';
+            const matchedFrom = row.matched_from_gallery ? 'Goat Gallery' : (row.reference_source || '-');
+            const confidence = ((row.detection_confidence || 0) * 100).toFixed(1) + '%';
+            const match = (row.match_percentage || 0).toFixed(1) + '%';
+            const box = row.bounding_box || { x: 0, y: 0, width: 0, height: 0 };
+            const boxText = `x:${Math.round(box.x)} y:${Math.round(box.y)} w:${Math.round(box.width)} h:${Math.round(box.height)}`;
+
+            return `
+                <tr>
+                    <td>${row.index}</td>
+                    <td><span class="badge-status ${badgeClass}">${row.status_label}</span></td>
+                    <td>${goatName}</td>
+                    <td>${goatId}</td>
+                    <td>${matchedFrom}</td>
+                    <td>${confidence}</td>
+                    <td>${match}</td>
+                    <td>${boxText}</td>
+                </tr>
+            `;
+        }).join('');
+
+        resultTableBody.innerHTML = rows;
+    }
+
+    function refreshMetricsFromRows() {
+        const detectionCount = latestDetections.length;
+        const recognizedCount = latestDetections.filter((row) => row.recognition_status === 'recognized').length;
+        const unknownCount = Math.max(0, detectionCount - recognizedCount);
+
+        metricDetected.textContent = String(detectionCount);
+        metricRecognized.textContent = String(recognizedCount);
+        metricUnknown.textContent = String(unknownCount);
+    }
+
+    async function runRecognition() {
+        const validationError = validateInput();
+        if (validationError) {
+            setStatus(statusError, validationError, 'error');
+            return;
+        }
+
+        const sourceType = getSelectedSourceType();
+        const threshold = Number(matchThreshold.value || 0.85);
+        const formData = new FormData();
+        formData.append('source_type', sourceType);
+        formData.append('match_threshold', threshold.toFixed(2));
+
+        if (sourceType === 'upload_image') {
+            formData.append('image', imageInput.files[0]);
+        } else if (sourceType === 'upload_video') {
+            formData.append('video', videoInput.files[0]);
+        } else {
+            const selectedOption = existingMediaSelect.options[existingMediaSelect.selectedIndex];
+            formData.append('existing_media_path', existingMediaSelect.value);
+            formData.append('existing_media_type', selectedOption ? selectedOption.dataset.mediaType || 'image' : 'image');
+        }
+
+        const originalButtonHtml = runRecognitionBtn.innerHTML;
+        runRecognitionBtn.disabled = true;
+        runRecognitionBtn.innerHTML = '<span class="loading-ring"></span> Processing...';
+        setStatus(statusProcessing, 'Running', 'warning');
+        setStatus(statusError, 'None', '');
+
+        try {
+            const response = await fetch('/ml/api/recognition/test/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: formData,
+            });
+
+            const payload = await response.json();
+
+            if (!response.ok) {
+                throw new Error(payload.error || 'Recognition request failed.');
+            }
+
+            const recognitionInfo = buildStatusLabel(payload.recognition_status);
+            setStatus(statusDetection, payload.detection_status || 'Unknown', payload.detection_count > 0 ? 'success' : 'info');
+            setStatus(statusRecognition, recognitionInfo[0], recognitionInfo[1]);
+            setStatus(statusProcessing, payload.processing_status || 'Completed', payload.processing_status === 'completed' ? 'success' : 'warning');
+            setStatus(statusError, payload.error || 'None', payload.error ? 'error' : '');
+
+            metricDetected.textContent = String(payload.detection_count || 0);
+            metricRecognized.textContent = String(payload.recognized_count || 0);
+            metricUnknown.textContent = String(payload.unknown_count || 0);
+            metricConfidence.textContent = ((payload.overall_detection_confidence || 0) * 100).toFixed(1) + '%';
+            latestDetections = payload.detections || [];
+            latestSourceFrame = payload.source_frame || '';
+
+            const referenceDb = payload.reference_database || {};
+            referenceDbInfo.textContent = `Reference DB: ${referenceDb.registered_goat_count || 0} active goats, ${referenceDb.goats_with_gallery_embeddings || 0} with gallery embeddings, ${referenceDb.total_reference_embeddings || 0} total reference embeddings.`;
+
+            renderTableRows(latestDetections);
+
+            if (payload.annotated_preview) {
+                showImagePreview(payload.annotated_preview);
+            }
+        } catch (error) {
+            setStatus(statusProcessing, 'Failed', 'error');
+            setStatus(statusError, error.message, 'error');
+            setStatus(statusRecognition, 'Recognition Failed', 'error');
+            setStatus(statusDetection, 'Failed', 'error');
+            referenceDbInfo.textContent = 'Reference DB: unavailable (request failed).';
+            latestDetections = [];
+            latestSourceFrame = '';
+            resultTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Recognition failed. Check error status above.</td></tr>';
+        } finally {
+            runRecognitionBtn.disabled = false;
+            runRecognitionBtn.innerHTML = originalButtonHtml;
+        }
+    }
+
+    function resetAll() {
+        imageInput.value = '';
+        videoInput.value = '';
+        existingMediaSelect.value = '';
+        clearPreview();
+        resetStatuses();
+    }
+
+    sourceInputs.forEach((node) => node.addEventListener('change', setSourceMode));
+    imageInput.addEventListener('change', renderLocalPreview);
+    videoInput.addEventListener('change', renderLocalPreview);
+    existingMediaSelect.addEventListener('change', renderLocalPreview);
+    matchThreshold.addEventListener('input', () => {
+        thresholdValue.textContent = Math.round(Number(matchThreshold.value) * 100) + '%';
+    });
+
+    runRecognitionBtn.addEventListener('click', runRecognition);
+    resetBtn.addEventListener('click', resetAll);
+
+    resetStatuses();
+    setSourceMode();
+</script>
+{% endblock %}

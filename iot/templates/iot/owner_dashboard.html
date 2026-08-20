@@ -1,0 +1,1270 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Goat Owner Dashboard</title>
+    <style>
+        :root {
+            /* Aligned to the canonical "Pasture" design tokens (static/css/style.css)
+               so the owner app matches the rest of the system. The bespoke mobile
+               layout is intentionally kept; only the token VALUES are unified. */
+            --bg: #fafaf9;              /* --content-bg */
+            --surface: #f5f5f4;         /* --gray-100 */
+            --surface-strong: #ffffff;  /* --card-bg */
+            --ink: #1c1917;             /* --text-primary */
+            --muted: #57534e;           /* --text-secondary */
+            --brand: #059669;           /* --primary-600 */
+            --brand-soft: #d1fae5;      /* --primary-100 */
+            --accent: #b45309;          /* --accent-700 */
+            --danger: #ef4444;          /* --danger */
+            --warning: #f59e0b;         /* --warning */
+            --ok: #10b981;              /* --success */
+            --line: #e7e5e4;            /* --border-color */
+            --radius: 12px;
+            --shadow-soft: 0 8px 20px rgba(28, 25, 23, 0.05);
+            --shadow-edge: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            background:
+                linear-gradient(180deg, rgba(169, 179, 158, 0.08), rgba(169, 179, 158, 0.02) 140px, transparent 140px),
+                repeating-linear-gradient(90deg, rgba(92, 110, 101, 0.03) 0 1px, transparent 1px 28px),
+                var(--bg);
+            color: var(--ink);
+            font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+
+        .shell {
+            max-width: 520px;
+            margin: 0 auto;
+            min-height: 100vh;
+            padding: 14px 12px 104px;
+        }
+
+        .topbar {
+            background: linear-gradient(155deg, #022c22 0%, #047857 48%, #10b981 100%);
+            color: #f5fff8;
+            border-radius: 16px;
+            box-shadow: var(--shadow-soft);
+            padding: 14px 14px 16px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(212, 228, 217, 0.25);
+        }
+
+        .kicker {
+            opacity: 0.84;
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .title {
+            margin: 5px 0 3px;
+            font-size: 24px;
+            line-height: 1.2;
+            letter-spacing: -0.01em;
+        }
+
+        .subtitle {
+            margin: 0;
+            font-size: 12px;
+            opacity: 0.88;
+            max-width: 32ch;
+        }
+
+        .quick-actions {
+            margin-top: 11px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .quick-chip {
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.14);
+            color: #effff6;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .inline-form {
+            margin: 0;
+            display: inline-flex;
+        }
+
+        .quick-chip-logout {
+            border-color: rgba(255, 216, 216, 0.48);
+            background: rgba(155, 58, 51, 0.2);
+        }
+
+        .quick-chip-logout:hover {
+            background: rgba(155, 58, 51, 0.3);
+        }
+
+        .section {
+            margin-top: 10px;
+            display: none;
+            animation: rise 220ms ease-out;
+        }
+
+        .section.active { display: block; }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .health-meter, .panel, .card, .row, .goat-card {
+            background: var(--surface-strong);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-edge);
+        }
+
+        .health-meter, .panel, .card { padding: 12px; }
+
+        .meter-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 7px;
+        }
+
+        .name {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+
+        .sub {
+            margin: 2px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .meter-track {
+            height: 10px;
+            border-radius: 999px;
+            background: #dbe8dc;
+            overflow: hidden;
+        }
+
+        .meter-fill {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #e08d11, #2f8a57);
+            border-radius: inherit;
+            transition: width 0.35s ease;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border-radius: 999px;
+            padding: 3px 8px;
+            font-size: 9px;
+            font-weight: 700;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            letter-spacing: 0.02em;
+        }
+
+        .status-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: currentColor;
+        }
+
+        .status-online { background: #e5f5ea; color: #257a4a; border-color: #c6e8d2; }
+        .status-offline { background: #f5eceb; color: #9a4f47; border-color: #efd7d4; }
+        .status-busy { background: #fff4df; color: #9a6a0b; border-color: #f2dfb8; }
+
+        .snapshot-grid {
+            margin-top: 8px;
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 7px;
+        }
+
+        .snapshot {
+            background: #f6f8f1;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 8px;
+            grid-column: span 2;
+        }
+
+        .snapshot .value {
+            margin: 4px 0 0;
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .metric-head {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+            font-size: 13px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .metric-icon { width: 18px; height: 18px; display: block; }
+        .metric { margin-top: 4px; font-size: 23px; font-weight: 700; line-height: 1; }
+        .metric.ok { color: var(--ok); }
+        .metric.warn { color: var(--warning); }
+
+        .list {
+            margin: 8px 0 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 8px;
+        }
+
+        .row {
+            padding: 9px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .row img {
+            width: 54px;
+            height: 54px;
+            border-radius: 10px;
+            object-fit: cover;
+            background: #d6e0d2;
+            border: 1px solid #c9d5c7;
+            flex: 0 0 auto;
+        }
+
+        .meta { flex: 1; min-width: 0; }
+
+        .pill {
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--brand-soft);
+            color: var(--brand);
+            white-space: nowrap;
+        }
+
+        .pill.alert { background: #fde9e7; color: var(--danger); }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .panel-title {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+
+        .title-wrap { display: flex; align-items: center; gap: 7px; }
+
+        .panel-actions { display: flex; gap: 6px; }
+
+        .btn-lite {
+            border: 1px solid var(--line);
+            background: #f7fbf6;
+            color: var(--ink);
+            border-radius: 10px;
+            padding: 7px 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .feed-box {
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #c5ccc0;
+            background: #dde3d9;
+            aspect-ratio: 4 / 3;
+            position: relative;
+        }
+
+        .feed-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+        .feed-overlay {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            background: rgba(10, 20, 15, 0.62);
+            color: #fff;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 999px;
+        }
+
+        .control-hint { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+
+        .control-grid { display: grid; gap: 8px; }
+
+        .control-row {
+            background: #f6f8f1;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .control-actions { display: flex; align-items: center; gap: 6px; }
+
+        .toggle-btn {
+            border: none;
+            border-radius: 999px;
+            background: var(--brand);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 9px 12px;
+            min-width: 94px;
+            letter-spacing: 0.01em;
+        }
+
+        .toggle-btn.loading { opacity: 0.7; pointer-events: none; }
+
+        .schedule-box {
+            margin-top: 10px;
+            border-top: 1px dashed var(--line);
+            padding-top: 10px;
+        }
+
+        .schedule-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .schedule-form select,
+        .schedule-form input {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 9px;
+            font-size: 12px;
+            background: #fff;
+        }
+
+        .day-picks {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .day-pill {
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 4px 8px;
+            font-size: 11px;
+            background: #f7fbf6;
+            color: var(--ink);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .schedule-list { margin-top: 10px; display: grid; gap: 8px; }
+
+        .schedule-item {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 8px 10px;
+            background: #f7f8f2;
+        }
+
+        .monitor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .monitor-cell {
+            background: #eef2e8;
+            border-radius: 10px;
+            padding: 10px;
+            border: 1px solid #d5dbcf;
+        }
+
+        .monitor-label { color: var(--muted); font-size: 12px; margin: 0; }
+        .monitor-value { margin: 4px 0 0; font-size: 18px; font-weight: 700; }
+
+        .goat-card { overflow: hidden; }
+
+        .goat-summary {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            align-items: center;
+        }
+
+        .goat-summary img {
+            width: 54px;
+            height: 54px;
+            border-radius: 10px;
+            object-fit: cover;
+            background: #d6e0d2;
+            border: 1px solid #c9d5c7;
+            flex: 0 0 auto;
+        }
+
+        .goat-more {
+            border-top: 1px dashed var(--line);
+            padding: 0 10px 10px;
+        }
+
+        .goat-more summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 8px 0;
+            color: var(--brand);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .goat-more summary::-webkit-details-marker { display: none; }
+
+        .goat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .goat-item {
+            background: #f6f8f1;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 7px;
+        }
+
+        .goat-item p { margin: 0; }
+        .goat-item .label { color: var(--muted); font-size: 11px; }
+        .goat-item .value { margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--ink); }
+
+        .goat-note {
+            margin-top: 8px;
+            background: #f3f7ef;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 8px;
+            font-size: 12px;
+            color: var(--ink);
+        }
+
+        .report-filter {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .report-filter select,
+        .report-filter input {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 9px;
+            font-size: 12px;
+            background: #fff;
+        }
+
+        .report-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .report-card {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #f8f8f2;
+            padding: 8px;
+        }
+
+        .report-card h4 { margin: 0; font-size: 11px; color: var(--muted); }
+        .report-value { margin-top: 5px; font-size: 16px; font-weight: 700; }
+
+        .chart-wrap {
+            margin-top: 10px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #f6f8f1;
+            padding: 10px;
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: 34px 1fr 34px;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 7px;
+        }
+
+        .chart-row:last-child { margin-bottom: 0; }
+
+        .bar-track {
+            height: 8px;
+            border-radius: 999px;
+            background: #dbe6d8;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 0;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #047857, #10b981);
+            transition: width 0.35s ease;
+        }
+
+        .nav {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 8px;
+            width: min(520px, calc(100% - 16px));
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            box-shadow: var(--shadow-soft);
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 2px;
+            padding: 6px;
+            z-index: 1000;
+        }
+
+        .tab {
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-size: 11px;
+            padding: 8px 6px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            min-height: 52px;
+            touch-action: manipulation;
+        }
+
+        .tab.active {
+            background: var(--brand-soft);
+            color: var(--brand);
+            font-weight: 700;
+        }
+
+        .tab-icon { width: 19px; height: 19px; display: block; opacity: 0.82; transition: opacity 0.2s ease; }
+        .tab.active .tab-icon { opacity: 1; }
+
+        .logout-button {
+            width: 100%;
+            margin-top: 10px;
+            background: #9b3a33;
+            border-color: #8a312b;
+            color: #fff;
+        }
+
+        .logout-button:hover {
+            background: #8a312b;
+        }
+
+        .empty {
+            margin-top: 8px;
+            background: var(--surface-strong);
+            border: 1px dashed var(--line);
+            border-radius: 10px;
+            padding: 14px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        @media (min-width: 720px) {
+            .shell { max-width: 920px; padding-top: 22px; }
+            .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .feed-box { aspect-ratio: 16 / 9; }
+            .monitor-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        @media (max-width: 420px) {
+            .report-cards { grid-template-columns: 1fr 1fr; }
+            .snapshot-grid { grid-template-columns: 1fr 1fr 1fr; }
+            .snapshot { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+<div class="shell">
+    <header class="topbar">
+        <p class="kicker">GoHMoTech</p>
+        <h1 class="title">Hello, {{ owner_name }}</h1>
+        <p class="subtitle">Live status of your goats and goat house</p>
+        <div class="quick-actions">
+            <button class="quick-chip" type="button" data-jump="tab-monitoring">Live Monitor</button>
+            <button class="quick-chip" type="button" data-jump="tab-alerts">View Alerts</button>
+            <button class="quick-chip" type="button" data-jump="tab-profile">Reports</button>
+            <span class="quick-chip" id="syncChip">Synced {{ last_sync_time|date:'H:i:s' }}</span>
+            <form method="post" action="{% url 'logout' %}" class="inline-form">
+                {% csrf_token %}
+                <button class="quick-chip quick-chip-logout" type="submit">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    {% if messages %}
+        <div class="list" style="margin-top:0;">
+            {% for message in messages %}
+                <div class="row" style="padding:8px 10px;">
+                    <div class="meta">
+                        <p class="sub" style="margin:0; color:#2a5f3f;">{{ message }}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <section id="tab-dashboard" class="section active">
+        <article class="health-meter">
+            <div class="meter-head">
+                <p class="name" style="font-size:13px;">Feeds Level</p>
+                <span class="status-badge {% if feed_level_percent >= 60 %}status-online{% elif feed_level_percent >= 30 %}status-busy{% else %}status-offline{% endif %}">{{ feed_level_percent }}%</span>
+            </div>
+            <div class="meter-track">
+                <div class="meter-fill" id="feedLevelMeterFill" data-score="{{ feed_level_percent }}"></div>
+            </div>
+            <div class="snapshot-grid">
+                <div class="snapshot">
+                    <p class="sub" style="margin:0;">Camera</p>
+                    <p class="value">{% if camera_online %}Online{% else %}Offline{% endif %}</p>
+                </div>
+                <div class="snapshot">
+                    <p class="sub" style="margin:0;">Actuators</p>
+                    <p class="value">{{ online_actuators }}/{{ total_actuators }}</p>
+                </div>
+                <div class="snapshot">
+                    <p class="sub" style="margin:0;">Schedules</p>
+                    <p class="value">{{ total_schedules }}</p>
+                </div>
+            </div>
+        </article>
+
+        <div class="cards">
+            <article class="card">
+                <h3 class="metric-head"><img class="metric-icon" src="{% static 'images/owner-icons/total.svg' %}" alt=""><span>Total Goats</span></h3>
+                <p class="metric">{{ total_goats }}</p>
+            </article>
+            <article class="card">
+                <h3 class="metric-head"><img class="metric-icon" src="{% static 'images/owner-icons/healthy.svg' %}" alt=""><span>Healthy Goats</span></h3>
+                <p class="metric ok">{{ healthy_goats }}</p>
+            </article>
+            <article class="card">
+                <h3 class="metric-head"><img class="metric-icon" src="{% static 'images/owner-icons/attention.svg' %}" alt=""><span>Needs Attention</span></h3>
+                <p class="metric warn">{{ goats_needing_attention }}</p>
+            </article>
+            <article class="card">
+                <h3 class="metric-head"><img class="metric-icon" src="{% static 'images/owner-icons/recent-alerts.svg' %}" alt=""><span>Recent Alerts</span></h3>
+                <p class="metric">{{ recent_alerts|length }}</p>
+            </article>
+        </div>
+
+        <ul class="list">
+            {% for alert in recent_alerts %}
+                <li class="row">
+                    <div class="meta">
+                        <p class="name">{{ alert.title }}</p>
+                        <p class="sub">{{ alert.message|truncatechars:78 }}</p>
+                        <p class="sub">{{ alert.time_ago }}</p>
+                    </div>
+                    <span class="pill alert">{{ alert.get_severity_display }}</span>
+                </li>
+            {% empty %}
+                <li class="empty">No recent alerts for your goats.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section id="tab-goats" class="section">
+        <ul class="list">
+            {% for goat in owned_goats %}
+                <li class="goat-card">
+                    <div class="goat-summary">
+                        {% if goat.latest_image %}
+                            <img src="{{ goat.latest_image.image.url }}" alt="{{ goat.goat_id }}">
+                        {% else %}
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23d6e0d2'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' fill='%23445c50' font-size='16' font-family='sans-serif'%3EGoat%3C/text%3E%3C/svg%3E" alt="Goat placeholder">
+                        {% endif %}
+                        <div class="meta">
+                            <p class="name">{{ goat.name|default:goat.goat_id }}</p>
+                            <p class="sub">ID: {{ goat.goat_id }} | Breed: {{ goat.get_breed_display }}</p>
+                            <p class="sub">Age: {{ goat.age_display }} | Condition: {{ goat.get_health_status_display }}</p>
+                        </div>
+                        <span class="pill">{{ goat.get_status_display }}</span>
+                    </div>
+
+                    <details class="goat-more">
+                        <summary>View Full Details</summary>
+                        <div class="goat-grid">
+                            <div class="goat-item"><p class="label">Tag Number</p><p class="value">{{ goat.tag_number|default:'Not set' }}</p></div>
+                            <div class="goat-item"><p class="label">Gender</p><p class="value">{{ goat.get_gender_display }}</p></div>
+                            <div class="goat-item"><p class="label">Birth Date</p><p class="value">{{ goat.date_of_birth|date:'M d, Y'|default:'Unknown' }}</p></div>
+                            <div class="goat-item"><p class="label">Weight</p><p class="value">{% if goat.weight_kg %}{{ goat.weight_kg }} kg{% else %}Unknown{% endif %}</p></div>
+                            <div class="goat-item"><p class="label">Last Seen</p><p class="value">{{ goat.last_seen_ago }}</p></div>
+                            <div class="goat-item"><p class="label">Latest Behavior</p><p class="value">{% if goat.latest_behavior %}{{ goat.latest_behavior.get_behavior_type_display }}{% else %}No data{% endif %}</p></div>
+                        </div>
+                        <div class="goat-note">
+                            <strong>Health Notes:</strong>
+                            {% if goat.health_notes %}
+                                {{ goat.health_notes }}
+                            {% else %}
+                                No health notes recorded.
+                            {% endif %}
+                        </div>
+                    </details>
+                </li>
+            {% empty %}
+                <li class="empty">No goats assigned to your owner account yet.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section id="tab-monitoring" class="section">
+        <article class="panel">
+            <div class="panel-head">
+                <div class="title-wrap">
+                    <h3 class="panel-title">Camera Feed</h3>
+                    {% if owner_camera and owner_camera.is_active and owner_camera.status == 'active' %}
+                        <span class="status-badge status-online" id="cameraStatusBadge">Online</span>
+                    {% else %}
+                        <span class="status-badge status-offline" id="cameraStatusBadge">Offline</span>
+                    {% endif %}
+                </div>
+                <div class="panel-actions">
+                    <button class="btn-lite" type="button" id="refreshFeedBtn">Refresh</button>
+                    <button class="btn-lite" type="button" id="fullscreenFeedBtn">Fullscreen</button>
+                </div>
+            </div>
+            <div class="feed-box" id="feedBox">
+                {% if owner_camera %}
+                    <img id="ownerCameraFeed"
+                         src="{% url 'iot:camera_feed' owner_camera.id %}?quality=70&fps=12"
+                         alt="Live goat house camera">
+                    <span class="feed-overlay" id="feedTimestamp">Live</span>
+                {% else %}
+                    <div class="empty" style="margin:0; border:none; background:transparent;">No active camera found.</div>
+                {% endif %}
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="panel-head">
+                <h3 class="panel-title">Controls / Actuators</h3>
+                <span class="sub">Safe mobile controls</span>
+            </div>
+            <p class="control-hint">Tap once and wait for status to return to Online before sending another command.</p>
+            <div class="control-grid">
+                {% for actuator in owner_actuators %}
+                    <div class="control-row" data-actuator-id="{{ actuator.id }}">
+                        <div class="meta">
+                            <p class="name">{{ actuator.device.name }}</p>
+                            <p class="sub">{{ actuator.actuator_type|title }} | Status: <span id="state-{{ actuator.id }}">{{ actuator.current_state }}</span></p>
+                        </div>
+                        <div class="control-actions">
+                            {% if actuator.is_online %}
+                                <span class="status-badge status-online" id="act-badge-{{ actuator.id }}">Online</span>
+                            {% else %}
+                                <span class="status-badge status-offline" id="act-badge-{{ actuator.id }}">Offline</span>
+                            {% endif %}
+                            <button class="toggle-btn" data-control="{{ actuator.id }}" data-kind="{{ actuator.actuator_type }}" data-state="{{ actuator.primary_state }}">{{ actuator.primary_action }}</button>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="empty" style="margin-top:0;">No owner-controllable actuators available.</div>
+                {% endfor %}
+            </div>
+
+            <div class="schedule-box">
+                <div class="panel-head" style="margin-bottom:6px;">
+                    <h3 class="panel-title">Automation Schedule</h3>
+                    <span class="sub">Set auto actions by time</span>
+                </div>
+
+                <form class="schedule-form" method="post" action="/iot/owner/schedules/create/">
+                    {% csrf_token %}
+                    <select name="device_type" id="scheduleDevice" required>
+                        <option value="">Device</option>
+                        <option value="light">Light</option>
+                        <option value="door">Door</option>
+                        <option value="feeder">Feeder</option>
+                    </select>
+                    <input type="time" name="time" required>
+                    <select name="action" id="scheduleAction" required>
+                        <option value="">Action</option>
+                        <option value="on">Turn ON</option>
+                        <option value="off">Turn OFF</option>
+                    </select>
+                    <button class="toggle-btn" type="submit">Save Schedule</button>
+                    <div class="day-picks">
+                        <label class="day-pill"><input type="checkbox" name="days" value="1">Mon</label>
+                        <label class="day-pill"><input type="checkbox" name="days" value="2">Tue</label>
+                        <label class="day-pill"><input type="checkbox" name="days" value="3">Wed</label>
+                        <label class="day-pill"><input type="checkbox" name="days" value="4">Thu</label>
+                        <label class="day-pill"><input type="checkbox" name="days" value="5">Fri</label>
+                        <label class="day-pill"><input type="checkbox" name="days" value="6">Sat</label>
+                        <label class="day-pill"><input type="checkbox" name="days" value="0">Sun</label>
+                    </div>
+                </form>
+
+                <div class="schedule-list">
+                    {% for rule in owner_automation_rules %}
+                        <div class="schedule-item">
+                            <p class="name">{{ rule.schedule_device_type|title }} - {{ rule.criteria.action|default:'action'|title }}</p>
+                            <p class="sub">Time: {{ rule.schedule_time }} | {{ rule.schedule_days }}</p>
+                        </div>
+                    {% endfor %}
+                    {% for sched in owner_feeder_schedules %}
+                        <div class="schedule-item">
+                            <p class="name">Feeder - Dispense {{ sched.amount_grams }}g</p>
+                            <p class="sub">Time: {{ sched.schedule_time|time:'H:i' }} | {{ sched.schedule_days }}</p>
+                        </div>
+                    {% endfor %}
+                    {% if not owner_automation_rules and not owner_feeder_schedules %}
+                        <div class="empty" style="margin-top:0;">No schedules yet. Create your first automation schedule above.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </article>
+
+        <article class="card">
+            <div class="monitor-grid">
+                <div class="monitor-cell">
+                    <p class="monitor-label">Temperature</p>
+                    <p class="monitor-value">{% if latest_sensor.temperature %}{{ latest_sensor.temperature }} C{% else %}N/A{% endif %}</p>
+                </div>
+                <div class="monitor-cell">
+                    <p class="monitor-label">Humidity</p>
+                    <p class="monitor-value">{% if latest_sensor.humidity %}{{ latest_sensor.humidity }}%{% else %}N/A{% endif %}</p>
+                </div>
+                <div class="monitor-cell">
+                    <p class="monitor-label">Indoor Light</p>
+                    <p class="monitor-value">{% if latest_sensor.light_level_percentage is not None %}{{ latest_sensor.light_level_percentage|floatformat:1 }}%{% else %}N/A{% endif %}</p>
+                </div>
+                <div class="monitor-cell">
+                    <p class="monitor-label">MQ-135 Air Quality</p>
+                    <p class="monitor-value">{% if latest_sensor.air_quality_calibrated and latest_sensor.air_quality_ppm is not None %}{{ latest_sensor.air_quality_ppm|floatformat:1 }} ppm{% elif latest_sensor.air_quality_raw is not None %}{{ latest_sensor.air_quality_raw }} ADC{% else %}N/A{% endif %}</p>
+                </div>
+                <div class="monitor-cell">
+                    <p class="monitor-label">Activity Status</p>
+                    <p class="monitor-value">{{ activity_rows|length }} tracked</p>
+                </div>
+                <div class="monitor-cell">
+                    <p class="monitor-label">Feeding Status</p>
+                    <p class="monitor-value">{% if latest_feed_log %}{{ latest_feed_log.get_feeding_mode_display }}{% else %}No feed log{% endif %}</p>
+                </div>
+                <div class="monitor-cell">
+                    <p class="monitor-label">Outside Temp</p>
+                    <p class="monitor-value">
+                        {% if weather_info.available and weather_info.temperature_c is not None %}
+                            {{ weather_info.temperature_c }} C
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="monitor-cell">
+                    <p class="monitor-label">Rain Chance</p>
+                    <p class="monitor-value">
+                        {% if weather_info.available %}
+                            {{ weather_info.rain_chance_pct|default:weather_info.today_rain_chance_pct|default:'N/A' }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </article>
+
+        <ul class="list">
+            {% for row in activity_rows %}
+                <li class="row">
+                    <div class="meta">
+                        <p class="name">{{ row.goat.goat_id }} - {{ row.goat.name|default:"Unnamed" }}</p>
+                        <p class="sub">Activity: {{ row.behavior|title }}</p>
+                        <p class="sub">{{ row.last_seen }}</p>
+                    </div>
+                </li>
+            {% empty %}
+                <li class="empty">No monitoring rows yet for your goats.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section id="tab-alerts" class="section">
+        <ul class="list">
+            {% for alert in missing_alerts %}
+                <li class="row">
+                    <div class="meta">
+                        <p class="name">Missing Goat Alert</p>
+                        <p class="sub">{{ alert.message|truncatechars:86 }}</p>
+                        <p class="sub">{{ alert.triggered_at }}</p>
+                    </div>
+                    <span class="pill alert">{{ alert.get_severity_display }}</span>
+                </li>
+            {% endfor %}
+
+            {% for alert in abnormal_health_alerts %}
+                <li class="row">
+                    <div class="meta">
+                        <p class="name">Abnormal Health Alert</p>
+                        <p class="sub">{{ alert.message }}</p>
+                        <p class="sub">{{ alert.time }}</p>
+                    </div>
+                    <span class="pill alert">Health</span>
+                </li>
+            {% endfor %}
+
+            {% for log in unusual_movement_logs %}
+                <li class="row">
+                    <div class="meta">
+                        <p class="name">Unusual Movement Alert</p>
+                        <p class="sub">{{ log.goat.goat_id }} - {{ log.get_behavior_type_display }}</p>
+                        <p class="sub">{{ log.timestamp }}</p>
+                    </div>
+                    <span class="pill alert">Movement</span>
+                </li>
+            {% endfor %}
+        </ul>
+        {% if not missing_alerts and not abnormal_health_alerts and not unusual_movement_logs %}
+            <div class="empty">No active alerts right now.</div>
+        {% endif %}
+    </section>
+
+    <section id="tab-profile" class="section">
+        <article class="card">
+            <h3>Profile</h3>
+            <p class="name" style="margin-top:6px;">{{ owner_name }}</p>
+            <p class="sub">Username: {{ request.user.username }}</p>
+            <p class="sub">Goats linked: {{ total_goats }}</p>
+            <form method="post" action="{% url 'logout' %}" style="margin:0;">
+                {% csrf_token %}
+                <button class="btn-lite logout-button" type="submit">Log Out</button>
+            </form>
+        </article>
+
+        <article class="card" style="margin-top:10px;">
+            <h3>History</h3>
+            <ul class="list" style="margin-top:8px;">
+                {% for log in recent_activity_logs %}
+                    <li class="row">
+                        <div class="meta">
+                            <p class="name">Activity - {{ log.goat.goat_id }}</p>
+                            <p class="sub">{{ log.get_behavior_type_display }} at {{ log.timestamp }}</p>
+                        </div>
+                    </li>
+                {% endfor %}
+
+                {% for goat in health_history %}
+                    <li class="row">
+                        <div class="meta">
+                            <p class="name">Health - {{ goat.goat_id }}</p>
+                            <p class="sub">{{ goat.get_health_status_display }} updated {{ goat.last_updated }}</p>
+                        </div>
+                    </li>
+                {% endfor %}
+
+                {% for loc in location_history %}
+                    <li class="row">
+                        <div class="meta">
+                            <p class="name">Location - {{ loc.goat.goat_id }}</p>
+                            <p class="sub">{{ loc.camera.location }} at {{ loc.timestamp }}</p>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        </article>
+
+        <article class="card" style="margin-top:10px;" id="reportsSection">
+            <h3>Reports</h3>
+            <form method="get" class="report-filter" style="margin-top:8px;">
+                <select name="report_range">
+                    <option value="daily" {% if report_range == 'daily' %}selected{% endif %}>Daily</option>
+                    <option value="weekly" {% if report_range == 'weekly' %}selected{% endif %}>Weekly</option>
+                    <option value="monthly" {% if report_range == 'monthly' %}selected{% endif %}>Monthly</option>
+                </select>
+                <button class="btn-lite" type="submit">Apply</button>
+                <input type="date" name="start_date" value="{{ request.GET.start_date }}">
+                <input type="date" name="end_date" value="{{ request.GET.end_date }}">
+            </form>
+
+            <div class="report-cards" style="margin-top:10px;">
+                <div class="report-card"><h4>Daily</h4><div class="report-value">{{ daily_summary.alerts }}</div><p class="sub">alerts</p></div>
+                <div class="report-card"><h4>Weekly</h4><div class="report-value">{{ weekly_summary.alerts }}</div><p class="sub">alerts</p></div>
+                <div class="report-card"><h4>Monthly</h4><div class="report-value">{{ monthly_summary.alerts }}</div><p class="sub">alerts</p></div>
+            </div>
+
+            <div class="report-cards" style="margin-top:8px;">
+                <div class="report-card"><h4>Health Report</h4><div class="report-value">{{ health_report.healthy }}</div><p class="sub">healthy goats</p></div>
+                <div class="report-card"><h4>Feeding Report</h4><div class="report-value">{{ feeding_report.total }}</div><p class="sub">feed events</p></div>
+                <div class="report-card"><h4>Environmental</h4><div class="report-value">{{ environmental_report.avg_temperature|default:'N/A' }}</div><p class="sub">avg temp</p></div>
+            </div>
+
+            <div class="chart-wrap">
+                {% for p in trend_points %}
+                    <div class="chart-row" data-alerts="{{ p.alerts }}" data-feeds="{{ p.feeds }}">
+                        <span class="sub" style="margin:0;">{{ p.label }}</span>
+                        <div class="bar-track"><div class="bar-fill"></div></div>
+                        <span class="sub" style="margin:0; text-align:right;">{{ p.alerts }}/{{ p.feeds }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div style="display:flex; gap:8px; margin-top:10px;">
+                <button class="btn-lite" type="button" id="downloadPdfBtn">Download PDF</button>
+                <span class="sub" style="align-self:center;">Uses browser print-to-PDF for mobile compatibility.</span>
+            </div>
+        </article>
+    </section>
+</div>
+
+<nav class="nav" aria-label="Owner navigation">
+    <button class="tab active" data-target="tab-dashboard" type="button"><img class="tab-icon" src="{% static 'images/owner-icons/dashboard.svg' %}" alt=""><span>Dashboard</span></button>
+    <button class="tab" data-target="tab-goats" type="button"><img class="tab-icon" src="{% static 'images/owner-icons/goat.svg' %}" alt=""><span>My Goats</span></button>
+    <button class="tab" data-target="tab-monitoring" type="button"><img class="tab-icon" src="{% static 'images/owner-icons/monitoring.svg' %}" alt=""><span>Monitoring</span></button>
+    <button class="tab" data-target="tab-alerts" type="button"><img class="tab-icon" src="{% static 'images/owner-icons/alerts.svg' %}" alt=""><span>Alerts</span></button>
+    <button class="tab" data-target="tab-profile" type="button"><img class="tab-icon" src="{% static 'images/owner-icons/profile.svg' %}" alt=""><span>Profile</span></button>
+</nav>
+
+<script>
+    (function () {
+        const tabs = document.querySelectorAll('.tab');
+        const sections = document.querySelectorAll('.section');
+
+        tabs.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                tabs.forEach((t) => t.classList.remove('active'));
+                sections.forEach((s) => s.classList.remove('active'));
+                btn.classList.add('active');
+                const target = document.getElementById(btn.dataset.target);
+                if (target) {
+                    target.classList.add('active');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+        });
+
+        document.querySelectorAll('[data-jump]').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                const targetId = chip.getAttribute('data-jump');
+                const targetTab = document.querySelector(`.tab[data-target="${targetId}"]`);
+                if (targetTab) targetTab.click();
+            });
+        });
+
+        const getCsrfToken = () => {
+            const match = document.cookie.match(/csrftoken=([^;]+)/);
+            return match ? match[1] : '';
+        };
+
+        const scheduleDevice = document.getElementById('scheduleDevice');
+        const scheduleAction = document.getElementById('scheduleAction');
+        if (scheduleDevice && scheduleAction) {
+            const actionsByDevice = {
+                light: [{ value: 'on', label: 'Turn ON' }, { value: 'off', label: 'Turn OFF' }],
+                door: [{ value: 'open', label: 'Open' }, { value: 'close', label: 'Close' }],
+                feeder: [{ value: 'dispense', label: 'Activate Feeder' }],
+            };
+            const updateActions = () => {
+                const selected = scheduleDevice.value;
+                const items = actionsByDevice[selected] || [];
+                scheduleAction.innerHTML = '<option value="">Action</option>';
+                items.forEach((item) => {
+                    const opt = document.createElement('option');
+                    opt.value = item.value;
+                    opt.textContent = item.label;
+                    scheduleAction.appendChild(opt);
+                });
+            };
+            scheduleDevice.addEventListener('change', updateActions);
+        }
+
+        const feedLevelMeterFill = document.getElementById('feedLevelMeterFill');
+        if (feedLevelMeterFill) {
+            const score = Number(feedLevelMeterFill.dataset.score || 0);
+            feedLevelMeterFill.style.width = Math.max(0, Math.min(100, score)) + '%';
+        }
+
+        const feed = document.getElementById('ownerCameraFeed');
+        const feedTimestamp = document.getElementById('feedTimestamp');
+        const cameraStatusBadge = document.getElementById('cameraStatusBadge');
+        const refreshFeedBtn = document.getElementById('refreshFeedBtn');
+        const fullscreenFeedBtn = document.getElementById('fullscreenFeedBtn');
+        const feedBox = document.getElementById('feedBox');
+
+        const setBadgeState = (node, state) => {
+            if (!node) return;
+            node.classList.remove('status-online', 'status-offline', 'status-busy');
+            if (state === 'online') {
+                node.classList.add('status-online');
+                node.textContent = 'Online';
+            } else if (state === 'busy') {
+                node.classList.add('status-busy');
+                node.textContent = 'Busy';
+            } else {
+                node.classList.add('status-offline');
+                node.textContent = 'Offline';
+            }
+        };
+
+        const refreshFeed = () => {
+            if (!feed) return;
+            setBadgeState(cameraStatusBadge, 'busy');
+            const base = feed.getAttribute('src').split('?')[0];
+            feed.setAttribute('src', base + '?v=' + Date.now());
+            if (feedTimestamp) feedTimestamp.textContent = 'Refreshed ' + new Date().toLocaleTimeString();
+        };
+
+        if (refreshFeedBtn) refreshFeedBtn.addEventListener('click', refreshFeed);
+
+        if (fullscreenFeedBtn && feedBox) {
+            fullscreenFeedBtn.addEventListener('click', async () => {
+                if (feedBox.requestFullscreen) await feedBox.requestFullscreen();
+            });
+        }
+
+        if (feed) {
+            setInterval(() => {
+                if (feedTimestamp) feedTimestamp.textContent = 'Live ' + new Date().toLocaleTimeString();
+                const syncChip = document.getElementById('syncChip');
+                if (syncChip) syncChip.textContent = 'Synced ' + new Date().toLocaleTimeString();
+            }, 1000);
+
+            feed.addEventListener('load', () => setBadgeState(cameraStatusBadge, 'online'));
+            feed.addEventListener('error', () => {
+                if (feedTimestamp) feedTimestamp.textContent = 'Connection lost. Tap Refresh.';
+                setBadgeState(cameraStatusBadge, 'offline');
+            });
+        }
+
+        document.querySelectorAll('[data-control]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const actuatorId = button.getAttribute('data-control');
+                const actuatorType = button.getAttribute('data-kind');
+                const state = button.getAttribute('data-state');
+                const badge = document.getElementById(`act-badge-${actuatorId}`);
+
+                button.classList.add('loading');
+                const originalText = button.textContent;
+                button.textContent = 'Sending...';
+                setBadgeState(badge, 'busy');
+
+                try {
+                    const formData = new FormData();
+                    formData.append('state', state);
+
+                    const response = await fetch(`/iot/owner/actuators/${actuatorId}/control/`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCsrfToken() },
+                        body: formData,
+                    });
+
+                    const payload = await response.json();
+                    if (!response.ok || !payload.success) throw new Error(payload.message || 'Failed to send command.');
+
+                    const stateNode = document.getElementById(`state-${actuatorId}`);
+                    if (stateNode) stateNode.textContent = payload.current_state;
+
+                    if (actuatorType === 'door') {
+                        const nextState = payload.current_state === 'open' ? 'closed' : 'open';
+                        button.setAttribute('data-state', nextState);
+                        button.textContent = payload.current_state === 'open' ? 'Close' : 'Open';
+                    } else if (actuatorType === 'feeder') {
+                        button.setAttribute('data-state', 'on');
+                        button.textContent = 'Activate';
+                    } else {
+                        const nextState = payload.current_state === 'on' ? 'off' : 'on';
+                        button.setAttribute('data-state', nextState);
+                        button.textContent = payload.current_state === 'on' ? 'Turn OFF' : 'Turn ON';
+                    }
+
+                    // Honest status: the button reflects the REQUESTED state (the
+                    // hardware does not confirm execution). The badge reflects the
+                    // real device-online signal returned by the server, not merely
+                    // "the request succeeded". If the device was offline the command
+                    // is queued, so tell the owner instead of showing a false Online.
+                    setBadgeState(badge, payload.device_online ? 'online' : 'offline');
+                    if (!payload.device_online) {
+                        window.alert(payload.message || 'Device is offline — command queued until it reconnects.');
+                    }
+                } catch (error) {
+                    button.textContent = originalText;
+                    setBadgeState(badge, 'offline');
+                    window.alert(error.message);
+                } finally {
+                    button.classList.remove('loading');
+                }
+            });
+        });
+
+        const chartRows = document.querySelectorAll('.chart-row');
+        let maxValue = 1;
+        chartRows.forEach((row) => {
+            const alerts = Number(row.dataset.alerts || 0);
+            const feeds = Number(row.dataset.feeds || 0);
+            maxValue = Math.max(maxValue, alerts + feeds);
+        });
+
+        chartRows.forEach((row) => {
+            const alerts = Number(row.dataset.alerts || 0);
+            const feeds = Number(row.dataset.feeds || 0);
+            const value = alerts + feeds;
+            const fill = row.querySelector('.bar-fill');
+            if (fill) fill.style.width = ((value / maxValue) * 100).toFixed(1) + '%';
+        });
+
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        if (downloadPdfBtn) downloadPdfBtn.addEventListener('click', () => window.print());
+    })();
+</script>
+</body>
+</html>

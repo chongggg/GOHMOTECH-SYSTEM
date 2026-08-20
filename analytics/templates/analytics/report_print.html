@@ -1,0 +1,125 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report.title }} — {{ report.system_name }}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #1a1a1a; background: #fff;
+            margin: 0; padding: 32px;
+            font-size: 12px; line-height: 1.5;
+        }
+        .p-head { border-bottom: 3px solid #1F6F3D; padding-bottom: 16px; margin-bottom: 20px; }
+        .p-system { font-size: 13px; font-weight: 700; color: #1F6F3D; letter-spacing: 0.02em; }
+        .p-title { font-size: 22px; font-weight: 700; margin: 6px 0 2px; }
+        .p-category { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+        .p-generated { font-size: 11px; color: #666; margin-top: 8px; }
+
+        .p-section { font-size: 13px; font-weight: 700; color: #1F6F3D; margin: 20px 0 8px; }
+
+        .p-meta { display: flex; flex-wrap: wrap; gap: 6px 28px; margin-bottom: 4px; }
+        .p-meta div { font-size: 11px; }
+        .p-meta .k { color: #666; }
+        .p-meta .v { font-weight: 600; }
+
+        .p-summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+        .p-kpi {
+            border: 1px solid #ddd; border-radius: 6px; padding: 8px 14px;
+            min-width: 130px;
+        }
+        .p-kpi .lbl { font-size: 10px; text-transform: uppercase; color: #666; letter-spacing: 0.03em; }
+        .p-kpi .val { font-size: 18px; font-weight: 700; }
+
+        .p-note {
+            background: #f1f7f3; border-left: 3px solid #1F6F3D;
+            padding: 8px 12px; font-size: 11px; color: #333;
+            margin-bottom: 12px; border-radius: 0 4px 4px 0;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th { background: #1F6F3D; color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
+        td { font-size: 11px; }
+        tbody tr:nth-child(even) { background: #f7f9f8; }
+
+        .p-foot { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 10px; color: #888; }
+        .p-actions { margin-bottom: 20px; }
+        .p-actions button {
+            background: #1F6F3D; color: #fff; border: none; border-radius: 6px;
+            padding: 10px 18px; font-size: 13px; cursor: pointer; margin-right: 8px;
+        }
+        .p-actions button.secondary { background: #6b7280; }
+
+        @media print {
+            body { padding: 0; }
+            .p-actions { display: none; }
+            thead { display: table-header-group; }
+            tr { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="p-actions">
+        <button onclick="window.print()">🖨 Print / Save as PDF</button>
+        <button class="secondary" onclick="window.close()">Close</button>
+    </div>
+
+    <div class="p-head">
+        <div class="p-system">{{ report.system_name }}</div>
+        <div class="p-title">{{ report.title }}</div>
+        <div class="p-category">{{ report.category }} Report</div>
+        <div class="p-generated">Generated {{ report.generated_at|date:"F d, Y H:i" }}</div>
+    </div>
+
+    {% if report.filters %}
+    <div class="p-section">Applied Filters</div>
+    <div class="p-meta">
+        {% for label, value in report.filters %}
+        <div><span class="k">{{ label }}:</span> <span class="v">{{ value }}</span></div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if report.summary %}
+    <div class="p-section">Summary</div>
+    <div class="p-summary">
+        {% for card in report.summary %}
+        <div class="p-kpi">
+            <div class="lbl">{{ card.label }}</div>
+            <div class="val">{{ card.value }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if report.note %}
+    <div class="p-note">{{ report.note }}</div>
+    {% endif %}
+
+    <div class="p-section">Detailed Data ({{ report.rows|length }} row{{ report.rows|length|pluralize }})</div>
+    {% if report.rows %}
+    <table>
+        <thead>
+            <tr>{% for col in report.columns %}<th>{{ col }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+            {% for row in report.rows %}
+            <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No data available for this selection.</p>
+    {% endif %}
+
+    <div class="p-foot">
+        {{ report.system_name }} · {{ report.title }} · Generated {{ report.generated_at|date:"Y-m-d H:i" }}
+    </div>
+
+    <script>window.addEventListener('load', function () { /* ready */ });</script>
+</body>
+</html>

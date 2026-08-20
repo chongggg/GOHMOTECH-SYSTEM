@@ -1,0 +1,543 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Security &amp; Notifications - GoHMoTech{% endblock %}
+{% block header_title %}Security{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sec-tabs .nav-link { color: var(--text-secondary); font-weight: 600; }
+    .sec-tabs .nav-link.active { color: var(--text-primary); }
+    .sec-stat-card {
+        background: var(--card-bg); border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg); padding: var(--spacing-lg);
+    }
+    .sec-stat-value { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); }
+    .sec-stat-label { font-size: 0.8rem; color: var(--text-secondary); }
+    .sev-critical { color: #b91c1c; }
+    .sev-high { color: #c2410c; }
+    .sev-medium { color: #a16207; }
+    .sev-low { color: #2563eb; }
+    .sev-info { color: #64748b; }
+    .badge-sev-critical { background:#b91c1c; }
+    .badge-sev-high { background:#c2410c; }
+    .badge-sev-medium { background:#a16207; }
+    .badge-sev-low { background:#2563eb; }
+    .badge-sev-info { background:#64748b; }
+    .notif-row.unread { border-left: 4px solid var(--accent-color, #6366f1); }
+    .notif-row { border-left: 4px solid transparent; }
+    .sec-muted { color: var(--text-secondary); font-size: 0.85rem; }
+    .detection-thumb { width: 96px; height: 72px; object-fit: cover; border-radius: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-content" data-detection-types='{% for k,v in detection_type_choices %}{{ k }}={{ v }};{% endfor %}'>
+
+    <!-- Overview summary cards -->
+    <div class="row g-3 mb-4" id="overviewCards">
+        <div class="col-6 col-md-3">
+            <div class="sec-stat-card">
+                <div class="sec-stat-value" id="ovUnread">{{ unread_count }}</div>
+                <div class="sec-stat-label">Unread notifications</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="sec-stat-card">
+                <div class="sec-stat-value" id="ovUnresolved">{{ unresolved_count }}</div>
+                <div class="sec-stat-label">Unresolved alerts</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="sec-stat-card">
+                <div class="sec-stat-value sev-critical" id="ovCritical">{{ critical_unresolved }}</div>
+                <div class="sec-stat-label">Critical unresolved</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="sec-stat-card">
+                <div class="sec-stat-value" id="ovDetections">{{ detections_unreviewed }}</div>
+                <div class="sec-stat-label">Unreviewed detections</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs sec-tabs mb-3" id="securityTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-overview" data-bs-toggle="tab"
+                    data-bs-target="#pane-overview" type="button" role="tab">
+                <i class="bi bi-speedometer2 me-1"></i> Overview
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-alerts" data-bs-toggle="tab"
+                    data-bs-target="#pane-alerts" type="button" role="tab">
+                <i class="bi bi-bell me-1"></i> Alerts
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-detections" data-bs-toggle="tab"
+                    data-bs-target="#pane-detections" type="button" role="tab">
+                <i class="bi bi-person-bounding-box me-1"></i> Security Detection
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-models" data-bs-toggle="tab"
+                    data-bs-target="#pane-models" type="button" role="tab">
+                <i class="bi bi-cpu me-1"></i> ML Models
+            </button>
+        </li>
+    </ul>
+<!-- CONTINUE_MARKER_1 -->
+    <div class="tab-content" id="securityTabContent">
+
+        <!-- ===== Overview (kept simple) ===== -->
+        <div class="tab-pane fade show active" id="pane-overview" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="sec-stat-card">
+                        <h6 class="mb-3">Notifications</h6>
+                        <div class="d-flex justify-content-between sec-muted mb-1">
+                            <span>Total</span><span>{{ total_notifications }}</span></div>
+                        <div class="d-flex justify-content-between sec-muted mb-1">
+                            <span>Unread</span><span>{{ unread_count }}</span></div>
+                        <div class="d-flex justify-content-between sec-muted">
+                            <span>Unresolved</span><span>{{ unresolved_count }}</span></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="sec-stat-card">
+                        <h6 class="mb-3">Person Detection &amp; Models</h6>
+                        <div class="d-flex justify-content-between sec-muted mb-1">
+                            <span>Detections recorded</span><span>{{ detections_total }}</span></div>
+                        <div class="d-flex justify-content-between sec-muted mb-1">
+                            <span>Awaiting review</span><span>{{ detections_unreviewed }}</span></div>
+                        <div class="d-flex justify-content-between sec-muted">
+                            <span>ML models ({{ ml_models_active }} active)</span><span>{{ ml_models_total }}</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== Alerts ===== -->
+        <div class="tab-pane fade" id="pane-alerts" role="tabpanel">
+            <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+                <div>
+                    <label class="sec-muted d-block">Severity</label>
+                    <select id="fSeverity" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        {% for key, label in severity_choices %}
+                        <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="sec-muted d-block">Type</label>
+                    <select id="fType" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        {% for key, label in type_choices %}
+                        <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="sec-muted d-block">Status</label>
+                    <select id="fStatus" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option value="unread">Unread</option>
+                        <option value="unresolved">Unresolved</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="sec-muted d-block">From</label>
+                    <input type="date" id="fFrom" class="form-control form-control-sm">
+                </div>
+                <div>
+                    <label class="sec-muted d-block">To</label>
+                    <input type="date" id="fTo" class="form-control form-control-sm">
+                </div>
+                <div>
+                    <input type="search" id="fSearch" class="form-control form-control-sm"
+                           placeholder="Search title/source...">
+                </div>
+                <button class="btn btn-sm btn-primary" id="applyFilters">Filter</button>
+                <button class="btn btn-sm btn-outline-secondary" id="markAllRead">Mark all read</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Severity</th><th>Title</th><th>Type</th>
+                            <th>Source</th><th>Date/Time</th><th>State</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertsBody">
+                        <tr><td colspan="7" class="sec-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="sec-muted" id="alertsCount"></span>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary" id="alertsPrev">Prev</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="alertsNext">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== Person Detection ===== -->
+        <div class="tab-pane fade" id="pane-detections" role="tabpanel">
+            <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+                <div>
+                    <label class="sec-muted d-block">Type</label>
+                    <select id="dType" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        {% for key, label in detection_type_choices %}
+                        <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="sec-muted d-block">Review</label>
+                    <select id="dReview" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option value="unreviewed">Unreviewed</option>
+                        <option value="reviewed">Reviewed</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="sec-muted d-block">From</label>
+                    <input type="date" id="dFrom" class="form-control form-control-sm">
+                </div>
+                <div>
+                    <label class="sec-muted d-block">To</label>
+                    <input type="date" id="dTo" class="form-control form-control-sm">
+                </div>
+                <button class="btn btn-sm btn-primary" id="applyDFilters">Filter</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Snapshot</th><th>Type</th><th>Source</th>
+                            <th>Confidence</th><th>Date/Time</th><th>Status</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="detectionsBody">
+                        <tr><td colspan="7" class="sec-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="sec-muted" id="detectionsCount"></span>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary" id="detPrev">Prev</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="detNext">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ML Models ===== -->
+        <div class="tab-pane fade" id="pane-models" role="tabpanel">
+            {% if request.user.is_staff %}
+            <div class="sec-stat-card mb-3">
+                <h6 class="mb-3">Upload a model</h6>
+                <form id="uploadForm" class="row g-2">
+                    <div class="col-md-4">
+                        <input class="form-control form-control-sm" name="name" placeholder="Model name" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input class="form-control form-control-sm" name="version" placeholder="Version" value="1.0">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" name="category">
+                            <option value="goat">Goat Detection</option>
+                            <option value="person">Person Detection</option>
+                            <option value="face">Face Detection</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" name="model_type">
+                            <option value="yolov8">YOLOv8 (Ultralytics)</option>
+                            <option value="pytorch">PyTorch</option>
+                            <option value="tensorflow">TensorFlow/Keras</option>
+                            <option value="yolo">YOLO (TF/Keras)</option>
+                            <option value="roboflow">Roboflow (self-hosted)</option>
+                            <option value="roboflow-hosted">Roboflow Hosted</option>
+                            <option value="sklearn">scikit-learn</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <input class="form-control form-control-sm" type="file" name="model_file" required>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-sm btn-primary w-100" type="submit">Upload (inactive)</button>
+                    </div>
+                    <div class="col-12"><small class="sec-muted" id="uploadMsg">
+                        Uploaded models are validated before they can be activated. Nothing is auto-activated.
+                    </small></div>
+                </form>
+            </div>
+            {% else %}
+            <p class="sec-muted">You do not have permission to upload or manage models.</p>
+            {% endif %}
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Name</th><th>Category</th><th>Type</th><th>Version</th>
+                            <th>Status</th><th>Active</th><th>Uploaded by</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="modelsBody">
+                        <tr><td colspan="8" class="sec-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+const NOTIF_API = '/security/api/notifications/';
+const DET_API = '/security/api/detections/';
+const MODEL_API = '/ml/api/models/';
+
+function post(url, body) {
+    return fetch(url, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+        body: body ? JSON.stringify(body) : null,
+    });
+}
+function esc(s) {
+    return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => (
+        {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleString('en-US', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+}
+function sevBadge(sev, label) {
+    return `<span class="badge badge-sev-${esc(sev)}">${esc(label || sev)}</span>`;
+}
+
+/* ---------------- Alerts ---------------- */
+let alertsUrl = NOTIF_API;
+function buildAlertsUrl() {
+    const p = new URLSearchParams();
+    const sev = document.getElementById('fSeverity').value;
+    const typ = document.getElementById('fType').value;
+    const st = document.getElementById('fStatus').value;
+    const from = document.getElementById('fFrom').value;
+    const to = document.getElementById('fTo').value;
+    const q = document.getElementById('fSearch').value;
+    if (sev) p.set('severity', sev);
+    if (typ) p.set('notification_type', typ);
+    if (st === 'unread') p.set('is_read', 'false');
+    if (st === 'unresolved') p.set('is_resolved', 'false');
+    if (from) p.set('created_at__gte', from);
+    if (to) p.set('created_at__lte', to + ' 23:59:59');
+    if (q) p.set('search', q);
+    return NOTIF_API + '?' + p.toString();
+}
+function loadAlerts(url) {
+    alertsUrl = url || buildAlertsUrl();
+    fetch(alertsUrl, {headers: {'Accept': 'application/json'}})
+        .then(r => r.json())
+        .then(data => {
+            const rows = data.results || data;
+            const body = document.getElementById('alertsBody');
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="7" class="sec-muted">No notifications.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(n => {
+                    const stateBadges = [];
+                    if (!n.is_read) stateBadges.push('<span class="badge bg-secondary">Unread</span>');
+                    stateBadges.push(n.is_resolved
+                        ? '<span class="badge bg-success">Resolved</span>'
+                        : '<span class="badge bg-warning text-dark">Open</span>');
+                    const openBtn = n.event_url
+                        ? `<a class="btn btn-sm btn-outline-primary" href="${esc(n.event_url)}">Open</a>` : '';
+                    const readBtn = n.is_read ? '' :
+                        `<button class="btn btn-sm btn-outline-secondary" onclick="markRead(${n.id})">Read</button>`;
+                    const resolveBtn = n.is_resolved ? '' :
+                        `<button class="btn btn-sm btn-outline-success" onclick="resolveNotif(${n.id})">Resolve</button>`;
+                    return `<tr class="notif-row ${n.is_read ? '' : 'unread'}">
+                        <td>${sevBadge(n.severity, n.severity_display)}</td>
+                        <td>${esc(n.title)}<div class="sec-muted">${esc(n.description || '')}</div></td>
+                        <td class="sec-muted">${esc(n.type_display)}</td>
+                        <td class="sec-muted">${esc(n.source || '-')}</td>
+                        <td class="sec-muted">${fmtDate(n.created_at)}</td>
+                        <td>${stateBadges.join(' ')}</td>
+                        <td class="text-nowrap">${openBtn} ${readBtn} ${resolveBtn}</td>
+                    </tr>`;
+                }).join('');
+            }
+            document.getElementById('alertsCount').textContent =
+                (data.count != null ? data.count + ' total' : rows.length + ' shown');
+            const prev = document.getElementById('alertsPrev');
+            const next = document.getElementById('alertsNext');
+            prev.disabled = !data.previous; next.disabled = !data.next;
+            prev.onclick = () => data.previous && loadAlerts(data.previous);
+            next.onclick = () => data.next && loadAlerts(data.next);
+        });
+}
+function markRead(id) { post(NOTIF_API + id + '/mark_read/').then(() => loadAlerts(alertsUrl)).then(refreshBadge); }
+function resolveNotif(id) {
+    const notes = prompt('Resolution notes (optional):') || '';
+    post(NOTIF_API + id + '/resolve/', {resolution_notes: notes})
+        .then(() => loadAlerts(alertsUrl)).then(refreshBadge);
+}
+function refreshBadge() {
+    fetch(NOTIF_API + 'unread_count/').then(r => r.json()).then(d => {
+        const el = document.getElementById('ovUnread');
+        if (el) el.textContent = d.unread;
+    });
+}
+
+/* ---------------- Person Detection ---------------- */
+let detUrl = DET_API;
+function buildDetUrl() {
+    const p = new URLSearchParams();
+    const t = document.getElementById('dType').value;
+    const r = document.getElementById('dReview').value;
+    const from = document.getElementById('dFrom').value;
+    const to = document.getElementById('dTo').value;
+    if (t) p.set('detection_type', t);
+    if (r) p.set('review_state', r);
+    if (from) p.set('detected_at__gte', from);
+    if (to) p.set('detected_at__lte', to + ' 23:59:59');
+    return DET_API + '?' + p.toString();
+}
+function loadDetections(url) {
+    detUrl = url || buildDetUrl();
+    fetch(detUrl, {headers: {'Accept': 'application/json'}})
+        .then(r => r.json())
+        .then(data => {
+            const rows = data.results || data;
+            const body = document.getElementById('detectionsBody');
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="7" class="sec-muted">No detections recorded.</td></tr>';
+            } else {
+                body.innerHTML = rows.map(d => {
+                    const thumb = d.snapshot_url
+                        ? `<img class="detection-thumb" src="${esc(d.snapshot_url)}">`
+                        : '<span class="sec-muted">—</span>';
+                    const reviewBtn = d.review_state === 'reviewed' ? '' :
+                        `<button class="btn btn-sm btn-outline-secondary" onclick="reviewDet(${d.id})">Review</button>`;
+                    return `<tr>
+                        <td>${thumb}</td>
+                        <td>${esc(d.detection_type_display)}</td>
+                        <td class="sec-muted">${esc(d.source_display)}</td>
+                        <td>${(d.confidence*100).toFixed(0)}%</td>
+                        <td class="sec-muted">${fmtDate(d.detected_at)}</td>
+                        <td><span class="badge bg-info text-dark">${esc(d.status_display)}</span></td>
+                        <td class="text-nowrap">
+                            <a class="btn btn-sm btn-outline-primary" href="/security/detections/${d.id}/">View</a>
+                            ${reviewBtn}
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+            document.getElementById('detectionsCount').textContent =
+                (data.count != null ? data.count + ' total' : rows.length + ' shown');
+            const prev = document.getElementById('detPrev');
+            const next = document.getElementById('detNext');
+            prev.disabled = !data.previous; next.disabled = !data.next;
+            prev.onclick = () => data.previous && loadDetections(data.previous);
+            next.onclick = () => data.next && loadDetections(data.next);
+        });
+}
+function reviewDet(id) {
+    const notes = prompt('Review notes (optional):') || '';
+    post(DET_API + id + '/review/', {review_notes: notes, status: 'reviewing'})
+        .then(() => loadDetections(detUrl));
+}
+
+/* ---------------- ML Models ---------------- */
+function loadModels() {
+    fetch(MODEL_API, {headers: {'Accept': 'application/json'}})
+        .then(r => r.json())
+        .then(data => {
+            const rows = data.results || data;
+            const body = document.getElementById('modelsBody');
+            const staff = {{ request.user.is_staff|yesno:"true,false" }};
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="8" class="sec-muted">No models registered.</td></tr>';
+                return;
+            }
+            body.innerHTML = rows.map(m => {
+                let actions = '';
+                if (staff) {
+                    if (m.has_file && m.status === 'uploaded')
+                        actions += `<button class="btn btn-sm btn-outline-info" onclick="modelAction(${m.id},'validate')">Validate</button> `;
+                    if (!m.is_active)
+                        actions += `<button class="btn btn-sm btn-outline-success" onclick="modelAction(${m.id},'activate')">Activate</button> `;
+                    else
+                        actions += `<button class="btn btn-sm btn-outline-warning" onclick="modelAction(${m.id},'deactivate')">Deactivate</button> `;
+                    actions += `<button class="btn btn-sm btn-outline-secondary" onclick="modelAction(${m.id},'archive')">Archive</button>`;
+                }
+                return `<tr>
+                    <td>${esc(m.name)}<div class="sec-muted">${esc(m.description || '')}</div></td>
+                    <td>${esc(m.category_display)}</td>
+                    <td class="sec-muted">${esc(m.model_type)}</td>
+                    <td>${esc(m.version)}</td>
+                    <td><span class="badge bg-secondary">${esc(m.status_display)}</span></td>
+                    <td>${m.is_active ? '<span class="badge bg-success">Active</span>' : '—'}</td>
+                    <td class="sec-muted">${esc(m.uploaded_by_name || '-')}</td>
+                    <td class="text-nowrap">${actions}</td>
+                </tr>`;
+            }).join('');
+        });
+}
+function modelAction(id, verb) {
+    post(MODEL_API + id + '/' + verb + '/')
+        .then(r => r.json().then(d => ({ok: r.ok, d})))
+        .then(({ok, d}) => { if (!ok) alert(d.error || 'Action failed'); loadModels(); });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Lazy-load each tab's data on first show.
+    const loaded = {};
+    function ensure(name, fn) { if (!loaded[name]) { loaded[name] = true; fn(); } }
+    document.getElementById('tab-alerts').addEventListener('shown.bs.tab', () => ensure('alerts', loadAlerts));
+    document.getElementById('tab-detections').addEventListener('shown.bs.tab', () => ensure('det', loadDetections));
+    document.getElementById('tab-models').addEventListener('shown.bs.tab', () => ensure('models', loadModels));
+
+    document.getElementById('applyFilters').addEventListener('click', () => loadAlerts());
+    document.getElementById('markAllRead').addEventListener('click', () =>
+        post(NOTIF_API + 'mark_all_read/').then(() => { loadAlerts(); refreshBadge(); }));
+    document.getElementById('applyDFilters').addEventListener('click', () => loadDetections());
+
+    const uploadForm = document.getElementById('uploadForm');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const fd = new FormData(uploadForm);
+            document.getElementById('uploadMsg').textContent = 'Uploading...';
+            fetch(MODEL_API + 'upload/', {method: 'POST', headers: {'X-CSRFToken': CSRF}, body: fd})
+                .then(r => r.json().then(d => ({ok: r.ok, d})))
+                .then(({ok, d}) => {
+                    document.getElementById('uploadMsg').textContent = ok
+                        ? 'Uploaded (inactive). Validate it before activating.'
+                        : (d.error || 'Upload failed');
+                    if (ok) { uploadForm.reset(); loadModels(); }
+                });
+        });
+    }
+});
+</script>
+{% endblock %}
+
+

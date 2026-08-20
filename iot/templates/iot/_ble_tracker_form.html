@@ -1,0 +1,65 @@
+{% if beacon_form.non_field_errors %}
+<div class="alert alert-danger" role="alert">
+    {% for error in beacon_form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<div class="form-check form-switch mb-3">
+    {{ beacon_form.enabled }}
+    <label class="form-check-label fw-semibold" for="{{ beacon_form.enabled.id_for_label }}">
+        {{ beacon_form.enabled.label }}
+    </label>
+    <div class="form-text">
+        Optional. Disable this when the tracker is configured but should not participate in tracking.
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label" for="{{ beacon_form.device_name.id_for_label }}">{{ beacon_form.device_name.label }}</label>
+        {{ beacon_form.device_name }}
+        {% for error in beacon_form.device_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6">
+        <label class="form-label" for="{{ beacon_form.mac_address.id_for_label }}">{{ beacon_form.mac_address.label }}</label>
+        {{ beacon_form.mac_address }}
+        {% for error in beacon_form.mac_address.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        <div class="form-text">Optional when the operating system does not expose a stable BLE address.</div>
+    </div>
+    <div class="col-12">
+        <label class="form-label" for="{{ beacon_form.uuid.id_for_label }}">{{ beacon_form.uuid.label }}</label>
+        {{ beacon_form.uuid }}
+        {% for error in beacon_form.uuid.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        <div class="form-text">Accepts UUIDs with or without hyphens and stores them in canonical form.</div>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label" for="{{ beacon_form.major.id_for_label }}">{{ beacon_form.major.label }}</label>
+        {{ beacon_form.major }}
+        {% for error in beacon_form.major.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6">
+        <label class="form-label" for="{{ beacon_form.minor.id_for_label }}">{{ beacon_form.minor.label }}</label>
+        {{ beacon_form.minor }}
+        {% for error in beacon_form.minor.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <label class="form-label" for="{{ beacon_form.calibrated_rssi.id_for_label }}">{{ beacon_form.calibrated_rssi.label }}</label>
+        {{ beacon_form.calibrated_rssi }}
+        {% for error in beacon_form.calibrated_rssi.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <label class="form-label" for="{{ beacon_form.advertising_interval_ms.id_for_label }}">{{ beacon_form.advertising_interval_ms.label }}</label>
+        {{ beacon_form.advertising_interval_ms }}
+        {% for error in beacon_form.advertising_interval_ms.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <label class="form-label" for="{{ beacon_form.tx_power_dbm.id_for_label }}">{{ beacon_form.tx_power_dbm.label }}</label>
+        {{ beacon_form.tx_power_dbm }}
+        {% for error in beacon_form.tx_power_dbm.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <label class="form-label" for="{{ beacon_form.battery_level.id_for_label }}">{{ beacon_form.battery_level.label }}</label>
+        {{ beacon_form.battery_level }}
+        {% for error in beacon_form.battery_level.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+</div>

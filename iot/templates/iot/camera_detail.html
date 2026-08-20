@@ -1,0 +1,381 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}{{ camera.name }} - GoHMoTech{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'iot:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'iot:cameras_list' %}">Cameras</a></li>
+                    <li class="breadcrumb-item active">{{ camera.name }}</li>
+                </ol>
+            </nav>
+            <h2>
+                <i class="bi bi-camera-video-fill text-info"></i> {{ camera.name }}
+                <span class="badge {% if camera.status == 'active' %}bg-success{% elif camera.status == 'error' %}bg-danger{% else %}bg-secondary{% endif %} ms-2">
+                    {{ camera.get_status_display }}
+                </span>
+            </h2>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Live Feed -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-broadcast"></i> Live Feed</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div style="position: relative; background: #000; min-height: 500px;" id="camera-container">
+                        {% if camera.is_active %}
+                            <img src="{% url 'iot:camera_feed' camera.id %}"
+                                 alt="{{ camera.name }}"
+                                 id="camera-image"
+                                 style="width: 100%; height: auto; display: block;"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <canvas id="bbox-canvas" 
+                                    style="position: absolute; top: 0; left: 0; pointer-events: none; z-index: 10;"></canvas>
+                            <div id="goat-count-badge" 
+                                 style="position: absolute; bottom: 15px; left: 15px; background: rgba(34, 197, 94, 0.95); color: white; padding: 8px 20px; border-radius: 25px; font-weight: 600; z-index: 11; display: none;">
+                                <i class="bi bi-circle-fill"></i> 0 Goats Detected
+                            </div>
+                            <div id="detection-toggle" 
+                                 style="position: absolute; top: 15px; right: 15px; z-index: 11;">
+                                <button class="btn btn-sm btn-success" id="start-detection-btn" onclick="startDetection()">
+                                    <i class="bi bi-play-circle"></i> Start Detection
+                                </button>
+                                <button class="btn btn-sm btn-danger d-none" id="stop-detection-btn" onclick="stopDetection()">
+                                    <i class="bi bi-stop-circle"></i> Stop Detection
+                                </button>
+                            </div>
+                            <div style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #1a1a1a; color: white; align-items: center; justify-content: center; flex-direction: column;">
+                                <i class="bi bi-camera-video-off-fill" style="font-size: 5rem;"></i>
+                                <h4 class="mt-3">Camera Offline</h4>
+                                <p class="text-muted">Unable to connect to camera stream</p>
+                                <button class="btn btn-outline-light mt-2" onclick="location.reload()">
+                                    <i class="bi bi-arrow-clockwise"></i> Retry
+                                </button>
+                            </div>
+                        {% else %}
+                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                                <i class="bi bi-camera-video-off-fill" style="font-size: 5rem;"></i>
+                                <h4 class="mt-3">Camera Inactive</h4>
+                                <p class="text-muted">This camera is currently disabled</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <button class="btn btn-sm btn-success" onclick="location.reload()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                            <a href="{% url 'iot:camera_snapshot' camera.id %}" class="btn btn-sm btn-info" target="_blank">
+                                <i class="bi bi-camera"></i> Snapshot
+                            </a>
+                        </div>
+                        <a href="{% url 'iot:cameras_list' %}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Cameras
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Information -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Camera Information</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Camera ID:</th>
+                            <td>{{ camera.camera_id }}</td>
+                        </tr>
+                        <tr>
+                            <th>Name:</th>
+                            <td>{{ camera.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Location:</th>
+                            <td><i class="bi bi-geo-alt-fill text-danger"></i> {{ camera.location }}</td>
+                        </tr>
+                        <tr>
+                            <th>Type:</th>
+                            <td>{{ camera.get_camera_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                <span class="badge {% if camera.status == 'active' %}bg-success{% elif camera.status == 'error' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                    {{ camera.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Active:</th>
+                            <td>
+                                {% if camera.is_active %}
+                                    <span class="badge bg-success">Yes</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">No</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-ethernet"></i> Network Configuration</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">IP Address:</th>
+                            <td><code>{{ camera.ip_address }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Port:</th>
+                            <td><code>{{ camera.port }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Username:</th>
+                            <td>{{ camera.username|default:"<em>Not set</em>" }}</td>
+                        </tr>
+                        {% if camera.rtsp_url %}
+                        <tr>
+                            <th>RTSP URL:</th>
+                            <td><small class="text-muted">{{ camera.rtsp_url|truncatechars:40 }}</small></td>
+                        </tr>
+                        {% endif %}
+                        {% if camera.http_url %}
+                        <tr>
+                            <th>HTTP URL:</th>
+                            <td><small class="text-muted">{{ camera.http_url|truncatechars:40 }}</small></td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .breadcrumb {
+        background: transparent;
+        padding: 0;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<script>
+let detectionInterval = null;
+let isDetecting = false;
+
+function startDetection() {
+    if (isDetecting) return;
+    
+    isDetecting = true;
+    document.getElementById('start-detection-btn').classList.add('d-none');
+    document.getElementById('stop-detection-btn').classList.remove('d-none');
+    document.getElementById('goat-count-badge').style.display = 'block';
+    
+    // Run detection every 2 seconds
+    runDetection();
+    detectionInterval = setInterval(runDetection, 2000);
+}
+
+function stopDetection() {
+    if (!isDetecting) return;
+    
+    isDetecting = false;
+    clearInterval(detectionInterval);
+    document.getElementById('stop-detection-btn').classList.add('d-none');
+    document.getElementById('start-detection-btn').classList.remove('d-none');
+    
+    // Clear canvas
+    const canvas = document.getElementById('bbox-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+async function runDetection() {
+    try {
+        const img = document.getElementById('camera-image');
+        
+        if (!img || !img.complete || img.naturalWidth === 0) {
+            return;
+        }
+        
+        // Create a temporary canvas to capture the current frame
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = img.naturalWidth;
+        tempCanvas.height = img.naturalHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(img, 0, 0);
+        
+        // Convert canvas to blob
+        const blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/jpeg', 0.95));
+        
+        // Send to detection API
+        const formData = new FormData();
+        formData.append('image', blob, 'frame.jpg');
+        
+        const response = await fetch('/ml/api/detect/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('Detection API error:', data);
+            showError('Detection error: ' + (data.error || 'Unknown error'));
+            return;
+        }
+        
+        drawDetections(data);
+        updateStats(data);
+    } catch (error) {
+        console.error('Detection error:', error);
+        showError('Detection failed: ' + error.message);
+    }
+}
+
+function showError(message) {
+    const badge = document.getElementById('goat-count-badge');
+    badge.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${message}`;
+    badge.style.background = 'rgba(220, 38, 38, 0.95)';
+    setTimeout(() => {
+        badge.style.background = 'rgba(34, 197, 94, 0.95)';
+    }, 3000);
+}
+
+function drawDetections(data) {
+    const img = document.getElementById('camera-image');
+    const canvas = document.getElementById('bbox-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size to match image
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    canvas.style.width = img.offsetWidth + 'px';
+    canvas.style.height = img.offsetHeight + 'px';
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (!data.detections || data.detections.length === 0) return;
+    
+    // Draw each bounding box
+    data.detections.forEach((det, i) => {
+        const bbox = det.bbox;
+        const x = bbox.x;
+        const y = bbox.y;
+        const width = bbox.width;
+        const height = bbox.height;
+        const confidence = det.confidence;
+        
+        // Draw semi-transparent fill
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.15)';
+        ctx.fillRect(x, y, width, height);
+        
+        // Draw thick rectangle border
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Draw label background
+        const label = `Goat #${i + 1} ${(confidence * 100).toFixed(0)}%`;
+        ctx.font = 'bold 20px Arial';
+        const textMetrics = ctx.measureText(label);
+        const textHeight = 24;
+        const padding = 8;
+        
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(x, y - textHeight - padding, textMetrics.width + padding * 2, textHeight + padding);
+        
+        // Draw label text
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(label, x + padding, y - padding - 4);
+        
+        // Draw corner markers for better visibility
+        const markerSize = 20;
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 4;
+        
+        // Top-left corner
+        ctx.beginPath();
+        ctx.moveTo(x, y + markerSize);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + markerSize, y);
+        ctx.stroke();
+        
+        // Top-right corner
+        ctx.beginPath();
+        ctx.moveTo(x + width - markerSize, y);
+        ctx.lineTo(x + width, y);
+        ctx.lineTo(x + width, y + markerSize);
+        ctx.stroke();
+        
+        // Bottom-left corner
+        ctx.beginPath();
+        ctx.moveTo(x, y + height - markerSize);
+        ctx.lineTo(x, y + height);
+        ctx.lineTo(x + markerSize, y + height);
+        ctx.stroke();
+        
+        // Bottom-right corner
+        ctx.beginPath();
+        ctx.moveTo(x + width - markerSize, y + height);
+        ctx.lineTo(x + width, y + height);
+        ctx.lineTo(x + width, y + height - markerSize);
+        ctx.stroke();
+    });
+}
+
+function updateStats(data) {
+    const count = data.detection_count || 0;
+    const badge = document.getElementById('goat-count-badge');
+    badge.innerHTML = `<i class="bi bi-circle-fill"></i> ${count} Goat${count !== 1 ? 's' : ''} Detected`;
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Auto-resize canvas when window resizes
+window.addEventListener('resize', () => {
+    if (isDetecting) {
+        const img = document.getElementById('camera-image');
+        const canvas = document.getElementById('bbox-canvas');
+        canvas.style.width = img.offsetWidth + 'px';
+        canvas.style.height = img.offsetHeight + 'px';
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Goat Inventory - GoHMoTech{% endblock %}
+
+{% block content %}
+    <!-- Hero Banner -->
+    <div class="hero-banner">
+        <h1>
+            <i class="bi bi-circle-fill"></i>
+            Goat Inventory
+        </h1>
+        <p>Manage and monitor your complete livestock inventory</p>
+        <div>
+            <span class="status-badge">
+                <i class="bi bi-database-fill"></i>
+                {{ total_goats|default:0 }} Total Goats
+            </span>
+            <span class="status-badge">
+                <i class="bi bi-heart-pulse-fill"></i>
+                {{ healthy_goats|default:0 }} Healthy
+            </span>
+        </div>
+    </div>
+
+<div style="padding: 0 30px 30px;">
+
+    <!-- Statistics Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <i class="bi bi-circle-fill"></i>
+                </div>
+                <div class="stat-label">Total Goats</div>
+                <div class="stat-value">{{ total_goats|default:0 }}</div>
+                <div class="stat-change">
+                    <i class="bi bi-database"></i> Complete inventory
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <i class="bi bi-heart-pulse-fill"></i>
+                </div>
+                <div class="stat-label">Healthy</div>
+                <div class="stat-value">{{ healthy_goats|default:0 }}</div>
+                <div class="stat-change positive">
+                    {% if total_goats > 0 %}
+                        <i class="bi bi-check-circle"></i> {% widthratio healthy_goats total_goats 100 %}% of total
+                    {% else %}
+                        <i class="bi bi-dash-circle"></i> No data
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon yellow">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+                <div class="stat-label">Needs Attention</div>
+                <div class="stat-value">{{ sick_goats|default:0 }}</div>
+                <div class="stat-change {% if sick_goats > 0 %}negative{% endif %}">
+                    <i class="bi bi-bandaid"></i> Sick or monitoring
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Goats List -->
+    <div class="content-card">
+        <div class="card-header-custom">
+            <h5>
+                <i class="bi bi-list-ul text-success"></i>
+                All Goats
+            </h5>
+            <a href="{% url 'iot:add_goat' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle"></i> Add New Goat
+            </a>
+        </div>
+        <div class="card-body-custom">
+            {% if goats %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Breed</th>
+                                <th>Gender</th>
+                                <th>Age</th>
+                                <th>Health Status</th>
+                                <th>Weight (kg)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for goat in goats %}
+                            <tr>
+                                <td><code>{{ goat.goat_id }}</code></td>
+                                <td>
+                                    <strong>{{ goat.name }}</strong>
+                                </td>
+                                <td>{{ goat.breed }}</td>
+                                <td>
+                                    {% if goat.gender == 'male' %}
+                                        <i class="bi bi-gender-male text-primary"></i> Male
+                                    {% elif goat.gender == 'female' %}
+                                        <i class="bi bi-gender-female text-danger"></i> Female
+                                    {% else %}
+                                        Unknown
+                                    {% endif %}
+                                </td>
+                                <td>{{ goat.age_display }}</td>
+                                <td>
+                                    {% if goat.health_status == 'healthy' %}
+                                        <span class="badge bg-success">Healthy</span>
+                                    {% elif goat.health_status == 'sick' %}
+                                        <span class="badge bg-danger">Sick</span>
+                                    {% elif goat.health_status == 'monitoring' %}
+                                        <span class="badge bg-warning">Monitoring</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ goat.health_status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ goat.weight_kg|default:"—" }}</td>
+                                <td>
+                                    <a href="{% url 'iot:goat_detail' goat.goat_id %}" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox" style="font-size: 4rem; color: #ccc;"></i>
+                    <h4 class="mt-3">No Goats Found</h4>
+                    <p class="text-muted">Start building your inventory</p>
+                    <a href="{% url 'iot:add_goat' %}" class="btn btn-success mt-2">
+                        <i class="bi bi-plus-circle"></i> Add Your First Goat
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

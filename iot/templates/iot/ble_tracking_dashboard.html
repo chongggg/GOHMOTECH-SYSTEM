@@ -1,0 +1,1025 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}{% if focus_goat_id %}Find Goat {{ focus_goat_id }}{% else %}Goat Tracking{% endif %} - GoHMoTech{% endblock %}
+{% block header_title %}{% if focus_goat_id %}Find Goat{% else %}Goat Tracking{% endif %}{% endblock %}
+
+{% block extra_css %}
+    .tracking-page { width: 100%; }
+    .tracking-page .tracking-note {
+        display: flex; gap: var(--spacing-md); align-items: flex-start;
+        padding: var(--spacing-md) var(--spacing-lg);
+        margin-bottom: var(--spacing-xl);
+        border: 1px solid var(--info); border-radius: var(--radius-lg);
+        background: var(--info-bg); color: var(--text-secondary);
+    }
+    .tracking-page .tracking-note i {
+        color: var(--info); font-size: 1.2rem; margin-top: 0.1rem;
+    }
+    .tracking-page .tracking-note strong {
+        color: var(--text-primary); display: block; margin-bottom: 0.2rem;
+    }
+    .receiver-strip {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: var(--spacing-md); flex-wrap: wrap;
+        padding: var(--spacing-md) var(--spacing-lg);
+        margin-bottom: var(--spacing-xl);
+        background: var(--card-bg); border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+    }
+    .receiver-identity { display: flex; align-items: center; gap: var(--spacing-md); }
+    .receiver-icon {
+        width: 44px; height: 44px; display: grid; place-items: center;
+        border-radius: var(--radius-md); color: var(--primary-600);
+        background: var(--primary-100); font-size: 1.25rem;
+    }
+    .receiver-title { color: var(--text-primary); font-weight: 700; }
+    .receiver-meta { color: var(--text-secondary); font-size: 0.85rem; }
+    .live-state {
+        display: inline-flex; align-items: center; gap: 0.45rem;
+        font-size: 0.82rem; font-weight: 700; color: var(--text-secondary);
+    }
+    .live-dot {
+        width: 9px; height: 9px; border-radius: 50%;
+        background: var(--text-tertiary);
+    }
+    .live-state.online .live-dot {
+        background: var(--success); box-shadow: 0 0 0 4px var(--success-bg);
+    }
+    .live-state.error .live-dot { background: var(--danger); }
+    .tracking-stats {
+        grid-template-columns: repeat(5, minmax(145px, 1fr));
+        margin-bottom: var(--spacing-xl);
+    }
+    .tracking-controls { padding: var(--spacing-lg); margin-bottom: var(--spacing-xl); }
+    .tracking-search { position: relative; min-width: min(100%, 300px); }
+    .tracking-search i {
+        position: absolute; left: 0.9rem; top: 50%;
+        transform: translateY(-50%); color: var(--text-tertiary);
+    }
+    .tracking-search input { min-height: 44px; padding-left: 2.55rem; }
+    .filter-row {
+        display: flex; gap: 0.5rem; flex-wrap: wrap;
+        margin-top: var(--spacing-md);
+    }
+    .tracking-filter {
+        border: 1px solid var(--border-color); color: var(--text-secondary);
+        background: var(--card-bg); border-radius: var(--radius-full);
+        min-height: 38px; padding: 0.45rem 0.85rem;
+        font-size: 0.82rem; font-weight: 700;
+        transition: all var(--transition-fast);
+    }
+    .tracking-filter:hover,
+    .tracking-filter.active {
+        color: var(--primary-700); border-color: var(--primary-500);
+        background: var(--primary-100);
+    }
+    .tracking-table-wrap { overflow-x: auto; }
+    .tracking-table { width: 100%; min-width: 850px; margin: 0; }
+    .tracking-table thead th {
+        padding: 0.9rem 1rem; border-bottom: 1px solid var(--border-color);
+        color: var(--text-secondary); background: var(--card-bg-subtle);
+        font-size: 0.75rem; text-transform: uppercase;
+        letter-spacing: 0.04em; white-space: nowrap;
+    }
+    .tracking-table tbody td {
+        padding: 0.9rem 1rem; border-bottom: 1px solid var(--border-color);
+        color: var(--text-secondary); vertical-align: middle;
+    }
+    .tracking-table tbody tr:last-child td { border-bottom: 0; }
+    .tracking-table tbody tr:hover { background: var(--card-bg-subtle); }
+    .goat-cell { display: flex; align-items: center; gap: 0.75rem; min-width: 185px; }
+    .tracking-avatar {
+        width: 42px; height: 42px; object-fit: cover; border-radius: 50%;
+        border: 1px solid var(--border-color); background: var(--card-bg-subtle);
+    }
+    .tracking-avatar-placeholder {
+        width: 42px; height: 42px; flex: 0 0 42px;
+        display: grid; place-items: center; border-radius: 50%;
+        border: 1px solid var(--border-color); color: var(--text-tertiary);
+        background: var(--card-bg-subtle);
+    }
+    .goat-link {
+        display: block; color: var(--text-primary);
+        text-decoration: none; font-weight: 700;
+    }
+    .goat-link:hover { color: var(--primary-600); }
+    .cell-subtext {
+        display: block; margin-top: 0.18rem;
+        color: var(--text-tertiary); font-size: 0.76rem;
+    }
+    .tracking-pill {
+        display: inline-flex; align-items: center; gap: 0.38rem;
+        padding: 0.32rem 0.68rem; border-radius: var(--radius-full);
+        font-size: 0.75rem; font-weight: 800; white-space: nowrap;
+    }
+    .tracking-pill::before {
+        content: ""; width: 7px; height: 7px;
+        border-radius: 50%; background: currentColor;
+    }
+    .pill-detected, .pill-very_near, .pill-near {
+        background: var(--success-bg); color: var(--success);
+    }
+    .pill-possibly_lost, .pill-medium {
+        background: var(--warning-bg); color: var(--warning);
+    }
+    .pill-far { background: var(--info-bg); color: var(--info-text); }
+    .pill-out_of_range {
+        background: var(--card-bg-subtle); color: var(--text-tertiary);
+    }
+    .rssi-value {
+        color: var(--text-primary); font-weight: 750;
+        font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .tracking-empty {
+        padding: 3.5rem 1rem !important; text-align: center;
+        color: var(--text-secondary);
+    }
+    .tracking-empty i {
+        display: block; margin-bottom: 0.7rem;
+        color: var(--text-tertiary); font-size: 2rem;
+    }
+    .refresh-note {
+        padding: 0.7rem 1rem; border-top: 1px solid var(--border-color);
+        color: var(--text-tertiary); font-size: 0.75rem; text-align: right;
+    }
+    .radar-card { padding: var(--spacing-lg); margin-bottom: var(--spacing-xl); }
+    .radar-heading {
+        display: flex; align-items: flex-start; justify-content: space-between;
+        gap: var(--spacing-lg); flex-wrap: wrap; margin-bottom: var(--spacing-lg);
+    }
+    .radar-heading h5 { margin-bottom: 0.25rem; }
+    .radar-accuracy {
+        display: inline-flex; align-items: center; gap: 0.45rem;
+        color: var(--text-tertiary); font-size: 0.78rem;
+    }
+    .radar-shell {
+        width: min(100%, 680px); margin: 0 auto;
+        padding: clamp(0.25rem, 1vw, 0.75rem);
+    }
+    .radar-stage {
+        position: relative; width: 100%; aspect-ratio: 1;
+        border: 1px solid var(--border-color); border-radius: 50%;
+        overflow: hidden; isolation: isolate;
+        background:
+            radial-gradient(circle, rgba(var(--primary-rgb, 42, 157, 143), 0.08) 0 16%, transparent 16% 100%),
+            var(--card-bg-subtle);
+    }
+    .radar-ring {
+        position: absolute; left: 50%; top: 50%;
+        transform: translate(-50%, -50%); border-radius: 50%;
+        border: 1px solid var(--border-color); pointer-events: none;
+    }
+    .radar-ring-far { width: 94%; height: 94%; }
+    .radar-ring-medium { width: 72%; height: 72%; }
+    .radar-ring-near { width: 52%; height: 52%; }
+    .radar-ring-very-near { width: 32%; height: 32%; }
+    .radar-ring-label {
+        position: absolute; left: 50%; z-index: 1;
+        transform: translate(-50%, -50%); padding: 0.12rem 0.45rem;
+        border: 1px solid var(--border-color); border-radius: var(--radius-full);
+        background: var(--card-bg); color: var(--text-tertiary);
+        font-size: clamp(0.52rem, 1.6vw, 0.68rem); font-weight: 750;
+        text-transform: uppercase; letter-spacing: 0.04em;
+        pointer-events: none; white-space: nowrap;
+    }
+    .radar-ring-label.far { top: 3%; }
+    .radar-ring-label.medium { top: 14%; }
+    .radar-ring-label.near { top: 24%; }
+    .radar-ring-label.very-near { top: 34%; }
+    .radar-receiver {
+        position: absolute; left: 50%; top: 50%; z-index: 4;
+        width: clamp(72px, 18%, 112px); aspect-ratio: 1;
+        transform: translate(-50%, -50%); border-radius: 50%;
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; gap: 0.18rem; padding: 0.35rem;
+        color: var(--primary-700); background: var(--card-bg);
+        border: 2px solid var(--primary-500); box-shadow: var(--shadow-md);
+        text-align: center;
+    }
+    .radar-receiver i { font-size: clamp(1rem, 3vw, 1.45rem); }
+    .radar-receiver strong {
+        width: 100%; overflow: hidden; text-overflow: ellipsis;
+        color: var(--text-primary); font-size: clamp(0.58rem, 1.8vw, 0.76rem);
+        white-space: nowrap;
+    }
+    .radar-receiver span {
+        color: var(--text-tertiary); font-size: clamp(0.48rem, 1.5vw, 0.62rem);
+    }
+    .radar-markers { position: absolute; inset: 0; z-index: 3; }
+    .radar-marker {
+        position: absolute; width: clamp(76px, 17vw, 116px);
+        min-height: 58px; transform: translate(-50%, -50%);
+        padding: 0.38rem 0.45rem; border: 1px solid var(--border-color);
+        border-left: 3px solid var(--success); border-radius: var(--radius-md);
+        background: var(--card-bg); box-shadow: var(--shadow-sm);
+        color: var(--text-primary); text-decoration: none; text-align: left;
+        transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .radar-marker:hover, .radar-marker:focus-visible {
+        z-index: 5; color: var(--text-primary); text-decoration: none;
+        transform: translate(-50%, -50%) scale(1.05); box-shadow: var(--shadow-lg);
+    }
+    .radar-marker.possibly-lost {
+        border-left-color: var(--warning); opacity: 0.82;
+    }
+    .radar-marker-head { display: flex; align-items: center; gap: 0.35rem; }
+    .radar-marker-avatar {
+        width: 24px; height: 24px; flex: 0 0 24px; object-fit: cover;
+        border-radius: 50%; background: var(--card-bg-subtle);
+    }
+    .radar-marker-id {
+        min-width: 0; overflow: hidden; color: var(--text-primary);
+        font-size: clamp(0.63rem, 1.7vw, 0.78rem); font-weight: 800;
+        text-overflow: ellipsis; white-space: nowrap;
+    }
+    .radar-marker-reading {
+        margin-top: 0.22rem; color: var(--text-secondary);
+        font-size: clamp(0.56rem, 1.5vw, 0.68rem); font-weight: 700;
+        white-space: nowrap;
+    }
+    .radar-marker-seen {
+        display: block; overflow: hidden; margin-top: 0.05rem;
+        color: var(--text-tertiary); font-size: clamp(0.5rem, 1.4vw, 0.61rem);
+        text-overflow: ellipsis; white-space: nowrap;
+    }
+    .radar-empty {
+        position: absolute; left: 50%; bottom: 9%; z-index: 2;
+        width: min(70%, 320px); transform: translateX(-50%);
+        padding: 0.55rem 0.8rem; border-radius: var(--radius-md);
+        color: var(--text-secondary); background: var(--card-bg);
+        border: 1px solid var(--border-color); font-size: 0.76rem;
+        text-align: center;
+    }
+    .radar-empty[hidden] { display: none; }
+    .radar-legend {
+        display: flex; justify-content: center; gap: 0.6rem 1rem;
+        flex-wrap: wrap; margin-top: var(--spacing-md);
+        color: var(--text-secondary); font-size: 0.72rem;
+    }
+    .radar-legend span { display: inline-flex; align-items: center; gap: 0.32rem; }
+    .radar-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .radar-legend-dot.detected { background: var(--success); }
+    .radar-legend-dot.lost { background: var(--warning); }
+    .radar-legend-dot.absent { background: var(--text-tertiary); }
+    .radar-absent {
+        margin-top: var(--spacing-md); padding-top: var(--spacing-md);
+        border-top: 1px solid var(--border-color); color: var(--text-secondary);
+        font-size: 0.78rem; text-align: center;
+    }
+    .radar-absent strong { color: var(--text-primary); }
+    .focus-mode .tracking-stats,
+    .focus-mode .tracking-controls,
+    .focus-mode .tracking-list-card { display: none; }
+    .find-panel {
+        display: grid; grid-template-columns: minmax(210px, 0.8fr) minmax(300px, 1.2fr);
+        gap: var(--spacing-xl); align-items: center;
+        padding: clamp(1rem, 3vw, 2rem); margin-bottom: var(--spacing-xl);
+        border: 1px solid var(--border-color);
+    }
+    .find-goat-identity {
+        display: flex; align-items: center; gap: var(--spacing-md);
+    }
+    .find-goat-avatar {
+        width: 72px; height: 72px; flex: 0 0 72px; display: grid;
+        place-items: center; object-fit: cover; border-radius: 50%;
+        border: 2px solid var(--primary-200); color: var(--text-tertiary);
+        background: var(--card-bg-subtle); font-size: 1.5rem;
+    }
+    .find-goat-avatar-image {
+        width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+    }
+    .find-goat-identity h2 {
+        margin: 0 0 0.15rem; color: var(--text-primary);
+        font-size: clamp(1.15rem, 2.5vw, 1.55rem);
+    }
+    .find-goat-meta { color: var(--text-secondary); font-size: 0.8rem; }
+    .find-signal-header {
+        display: flex; justify-content: space-between; align-items: baseline;
+        gap: var(--spacing-md); margin-bottom: 0.55rem;
+    }
+    .find-signal-header strong { color: var(--text-primary); }
+    .find-signal-label {
+        color: var(--text-secondary); font-size: 0.8rem; font-weight: 750;
+    }
+    .find-signal-meter {
+        display: grid; grid-template-columns: repeat(10, 1fr);
+        gap: clamp(0.22rem, 1vw, 0.42rem); height: 44px;
+        align-items: end; margin-bottom: var(--spacing-lg);
+    }
+    .find-signal-segment {
+        height: 100%; border-radius: 0.28rem;
+        background: var(--border-color);
+        transition: background var(--transition-fast), opacity var(--transition-fast);
+    }
+    .find-signal-segment.active { background: var(--primary-500); }
+    .find-signal-meter[data-proximity="medium"] .active { background: var(--warning); }
+    .find-signal-meter[data-proximity="far"] .active { background: var(--info); }
+    .find-signal-meter[data-proximity="out_of_range"] .active {
+        background: var(--text-tertiary);
+    }
+    .find-readings {
+        display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.65rem;
+    }
+    .find-reading {
+        padding: 0.65rem; border: 1px solid var(--border-color);
+        border-radius: var(--radius-md); background: var(--card-bg-subtle);
+    }
+    .find-reading small {
+        display: block; margin-bottom: 0.18rem;
+        color: var(--text-tertiary); font-size: 0.68rem;
+    }
+    .find-reading strong {
+        display: block; overflow: hidden; color: var(--text-primary);
+        font-size: 0.82rem; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .find-guidance {
+        display: flex; align-items: flex-start; gap: 0.5rem;
+        margin-top: var(--spacing-md); color: var(--text-secondary);
+        font-size: 0.76rem;
+    }
+    .find-guidance i { color: var(--primary-600); }
+    @media (max-width: 1100px) {
+        .tracking-stats { grid-template-columns: repeat(3, minmax(145px, 1fr)); }
+    }
+    @media (max-width: 640px) {
+        .tracking-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .tracking-page .page-actions { width: 100%; }
+        .tracking-page .page-actions .btn { width: 100%; justify-content: center; }
+        .tracking-search { width: 100%; }
+        .receiver-strip { align-items: flex-start; }
+        .radar-card { padding: var(--spacing-md); }
+        .radar-heading { margin-bottom: var(--spacing-sm); }
+        .radar-marker { padding: 0.28rem 0.32rem; min-height: 50px; }
+        .radar-marker-avatar { width: 20px; height: 20px; flex-basis: 20px; }
+        .find-panel { grid-template-columns: 1fr; }
+        .find-readings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+{% endblock %}
+
+{% block content %}
+<div class="tracking-page{% if focus_goat_id %} focus-mode{% endif %}"
+     data-api-url="{% url 'iot:ble_tracking_snapshot' %}"
+     data-focus-goat-id="{{ focus_goat_id|default:'' }}">
+    <div class="page-header">
+        <div>
+            <div class="page-eyebrow">BLE Monitoring</div>
+            {% if focus_goat_id %}
+            <h1>Find Goat {{ focus_goat_id }}</h1>
+            <p class="page-subtitle">Follow live signal strength while carrying this receiver</p>
+            {% else %}
+            <h1>Live Goat Tracking</h1>
+            <p class="page-subtitle">Current BLE signal proximity and tracker availability</p>
+            {% endif %}
+        </div>
+        <div class="page-actions">
+            {% if focus_goat_id %}
+            <a href="{% url 'iot:goat_detail_enhanced' focus_goat_id %}"
+               class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Goat Profile
+            </a>
+            <a href="{% url 'iot:ble_tracking_dashboard' %}" class="btn btn-outline-primary">
+                <i class="bi bi-broadcast-pin"></i> All Tracking
+            </a>
+            {% else %}
+            <a href="{% url 'iot:goat_inventory' %}" class="btn btn-outline-primary">
+                <i class="bi bi-grid-3x3-gap"></i> Goat Inventory
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="tracking-note">
+        <i class="bi bi-info-circle-fill"></i>
+        <div>
+            <strong>Proximity only — not exact location</strong>
+            RSSI estimates whether a goat is nearer or farther from the BLE receiver.
+            One receiver cannot determine direction, coordinates, or exact distance.
+        </div>
+    </div>
+
+    <div class="receiver-strip">
+        <div class="receiver-identity">
+            <div class="receiver-icon"><i class="bi bi-laptop"></i></div>
+            <div>
+                <div class="receiver-title" id="receiverTitle">BLE Receiver</div>
+                <div class="receiver-meta" id="receiverMeta">Loading receiver status…</div>
+            </div>
+        </div>
+        <div class="live-state" id="liveState">
+            <span class="live-dot"></span>
+            <span id="liveText">Connecting…</span>
+        </div>
+    </div>
+
+    {% if focus_goat_id %}
+    <section class="content-card find-panel" aria-labelledby="findGoatTitle">
+        <div>
+            <div class="find-goat-identity">
+                <div class="find-goat-avatar" id="findGoatAvatar">
+                    <i class="bi bi-camera"></i>
+                </div>
+                <div>
+                    <h2 id="findGoatTitle">Searching for {{ focus_goat.name|default:focus_goat_id }}</h2>
+                    <div class="find-goat-meta">
+                        Goat {{ focus_goat_id }} ·
+                        <span id="findBeaconName">{{ focus_beacon.device_name|default:'BLE tracker' }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="find-guidance">
+                <i class="bi bi-info-circle"></i>
+                <span>
+                    Walk with the laptop and watch the signal change.
+                    It estimates proximity, not direction or exact distance.
+                </span>
+            </div>
+        </div>
+        <div>
+            <div class="find-signal-header">
+                <strong>Signal strength</strong>
+                <span class="find-signal-label" id="findSignalLabel">Waiting for signal…</span>
+            </div>
+            <div class="find-signal-meter" id="findSignalMeter"
+                 role="meter" aria-label="BLE signal strength"
+                 aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"
+                 data-proximity="out_of_range">
+                <span class="find-signal-segment"></span>
+                <span class="find-signal-segment"></span>
+                <span class="find-signal-segment"></span>
+                <span class="find-signal-segment"></span>
+                <span class="find-signal-segment"></span>
+                <span class="find-signal-segment"></span>
+                <span class="find-signal-segment"></span>
+                <span class="find-signal-segment"></span>
+                <span class="find-signal-segment"></span>
+                <span class="find-signal-segment"></span>
+            </div>
+            <div class="find-readings">
+                <div class="find-reading">
+                    <small id="findRssiLabel">Current RSSI</small>
+                    <strong id="findRssi">—</strong>
+                </div>
+                <div class="find-reading">
+                    <small>Proximity</small>
+                    <strong id="findProximity">Waiting…</strong>
+                </div>
+                <div class="find-reading">
+                    <small>Last Seen</small>
+                    <strong id="findLastSeen">Never</strong>
+                </div>
+                <div class="find-reading">
+                    <small>Tracking Status</small>
+                    <strong id="findStatus">Loading…</strong>
+                </div>
+            </div>
+            <div class="find-guidance">
+                <i class="bi bi-person-walking"></i>
+                <span id="findGuidance">Start the scanner and move through nearby areas.</span>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="stat-grid tracking-stats">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="bi bi-broadcast-pin"></i></div>
+            <p class="stat-label">Tracked Goats</p>
+            <p class="stat-value" id="statTracked">—</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-wifi"></i></div>
+            <p class="stat-label">Detected</p>
+            <p class="stat-value" id="statDetected">—</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon yellow"><i class="bi bi-hourglass-split"></i></div>
+            <p class="stat-label">Possibly Lost</p>
+            <p class="stat-value" id="statPossiblyLost">—</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon red"><i class="bi bi-wifi-off"></i></div>
+            <p class="stat-label">Out of Range</p>
+            <p class="stat-value" id="statOutOfRange">—</p>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="bi bi-reception-4"></i></div>
+            <p class="stat-label">Very Near</p>
+            <p class="stat-value" id="statVeryNear">—</p>
+        </div>
+    </div>
+
+    <section class="content-card radar-card" aria-labelledby="radarTitle">
+        <div class="radar-heading">
+            <div>
+                <h5 id="radarTitle">{% if focus_goat_id %}Focused Proximity Radar{% else %}Goat Tracking Radar{% endif %}</h5>
+                <div class="text-muted small">Goats are grouped by approximate signal proximity.</div>
+            </div>
+            <div class="radar-accuracy">
+                <i class="bi bi-shuffle"></i>
+                Marker angle is decorative, not a physical direction.
+            </div>
+        </div>
+        <div class="radar-shell">
+            <div class="radar-stage" id="radarStage">
+                <div class="radar-ring radar-ring-far"></div>
+                <div class="radar-ring radar-ring-medium"></div>
+                <div class="radar-ring radar-ring-near"></div>
+                <div class="radar-ring radar-ring-very-near"></div>
+                <span class="radar-ring-label far">Far</span>
+                <span class="radar-ring-label medium">Medium</span>
+                <span class="radar-ring-label near">Near</span>
+                <span class="radar-ring-label very-near">Very Near</span>
+                <div class="radar-markers" id="radarMarkers"></div>
+                <div class="radar-receiver" aria-label="BLE receiver at radar center">
+                    <i class="bi bi-laptop"></i>
+                    <strong id="radarReceiverName">My Laptop</strong>
+                    <span>BLE Receiver</span>
+                </div>
+                <div class="radar-empty" id="radarEmpty">
+                    No recent BLE detections. Start the scanner to populate the radar.
+                </div>
+            </div>
+            <div class="radar-legend" aria-label="Radar marker status legend">
+                <span><i class="radar-legend-dot detected"></i>Detected</span>
+                <span><i class="radar-legend-dot lost"></i>Possibly Lost</span>
+                <span><i class="radar-legend-dot absent"></i>Out of Range (list only)</span>
+            </div>
+        </div>
+        <div class="radar-absent" id="radarAbsent">
+            <strong>Out of range:</strong> Loading…
+        </div>
+    </section>
+
+    <div class="content-card tracking-controls">
+        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+            <div>
+                <h5 class="mb-1">Tracking List</h5>
+                <div class="text-muted small" id="timeoutHelp">Loading tracking thresholds…</div>
+            </div>
+            <div class="tracking-search">
+                <i class="bi bi-search"></i>
+                <input id="trackingSearch" type="search" class="form-control"
+                       placeholder="Search goat ID, name, or beacon…"
+                       autocomplete="off">
+            </div>
+        </div>
+        <div class="filter-row" id="trackingFilters" aria-label="Tracking filters">
+            <button type="button" class="tracking-filter active" data-filter="all">All</button>
+            <button type="button" class="tracking-filter" data-filter="detected">Detected</button>
+            <button type="button" class="tracking-filter" data-filter="possibly_lost">Possibly Lost</button>
+            <button type="button" class="tracking-filter" data-filter="very_near">Very Near</button>
+            <button type="button" class="tracking-filter" data-filter="near">Near</button>
+            <button type="button" class="tracking-filter" data-filter="medium">Medium</button>
+            <button type="button" class="tracking-filter" data-filter="far">Far</button>
+            <button type="button" class="tracking-filter" data-filter="out_of_range">Out of Range</button>
+        </div>
+    </div>
+
+    <div class="content-card p-0 tracking-list-card">
+        <div class="tracking-table-wrap">
+            <table class="tracking-table">
+                <thead>
+                    <tr>
+                        <th>Goat</th><th>Beacon</th><th>RSSI</th><th>Proximity</th>
+                        <th>Last Seen</th><th>Status</th><th>Receiver</th>
+                    </tr>
+                </thead>
+                <tbody id="trackingRows">
+                    <tr><td colspan="7" class="tracking-empty">
+                        <i class="bi bi-arrow-repeat"></i>Loading BLE tracking data…
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="refresh-note" id="refreshNote">Waiting for first update…</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    const page = document.querySelector('.tracking-page');
+    const apiUrl = page.dataset.apiUrl;
+    const focusGoatId = page.dataset.focusGoatId || '';
+    const rowsBody = document.getElementById('trackingRows');
+    const searchInput = document.getElementById('trackingSearch');
+    const liveState = document.getElementById('liveState');
+    const liveText = document.getElementById('liveText');
+    const refreshNote = document.getElementById('refreshNote');
+    const radarMarkers = document.getElementById('radarMarkers');
+    const radarEmpty = document.getElementById('radarEmpty');
+    const radarAbsent = document.getElementById('radarAbsent');
+    let rows = [];
+    let activeFilter = 'all';
+    let requestRunning = false;
+    let lastRefresh = null;
+
+    const statIds = {
+        tracked_goats: 'statTracked', detected: 'statDetected',
+        possibly_lost: 'statPossiblyLost', out_of_range: 'statOutOfRange',
+        very_near: 'statVeryNear'
+    };
+
+    function textCell(value, className) {
+        const td = document.createElement('td');
+        if (className) td.className = className;
+        td.textContent = value;
+        return td;
+    }
+
+    function relativeTime(timestamp) {
+        if (!timestamp) return 'Never';
+        const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(timestamp)) / 1000));
+        if (seconds < 5) return 'Just now';
+        if (seconds < 60) return seconds + ' sec ago';
+        if (seconds < 3600) return Math.floor(seconds / 60) + ' min ago';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + ' hr ago';
+        const days = Math.floor(seconds / 86400);
+        return days + ' day' + (days === 1 ? '' : 's') + ' ago';
+    }
+
+    function statusPill(value, label) {
+        const pill = document.createElement('span');
+        pill.className = 'tracking-pill pill-' + value;
+        pill.textContent = label;
+        return pill;
+    }
+
+    function goatCell(row) {
+        const td = document.createElement('td');
+        const wrapper = document.createElement('div');
+        wrapper.className = 'goat-cell';
+        if (row.goat.image_url) {
+            const image = document.createElement('img');
+            image.className = 'tracking-avatar';
+            image.src = row.goat.image_url;
+            image.alt = row.goat.goat_id;
+            wrapper.appendChild(image);
+        } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'tracking-avatar-placeholder';
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-camera';
+            placeholder.appendChild(icon);
+            wrapper.appendChild(placeholder);
+        }
+        const identity = document.createElement('div');
+        const link = document.createElement('a');
+        link.className = 'goat-link';
+        link.href = row.goat.detail_url;
+        link.textContent = row.goat.goat_id;
+        const name = document.createElement('span');
+        name.className = 'cell-subtext';
+        name.textContent = row.goat.name || 'Unnamed goat';
+        identity.append(link, name);
+        wrapper.appendChild(identity);
+        td.appendChild(wrapper);
+        return td;
+    }
+
+    function beaconCell(row) {
+        const td = document.createElement('td');
+        const name = document.createElement('span');
+        name.className = 'rssi-value';
+        name.textContent = row.beacon.device_name || 'BLE tracker';
+        const identity = document.createElement('span');
+        identity.className = 'cell-subtext';
+        identity.textContent = row.beacon.mac_address ||
+            (row.beacon.major + '/' + row.beacon.minor);
+        td.append(name, identity);
+        return td;
+    }
+
+    function rssiCell(row) {
+        const td = document.createElement('td');
+        const value = document.createElement('span');
+        value.className = 'rssi-value';
+        value.textContent = row.current_rssi === null ? '—' : row.current_rssi + ' dBm';
+        td.appendChild(value);
+        if (row.smoothed_rssi !== null) {
+            const smooth = document.createElement('span');
+            smooth.className = 'cell-subtext';
+            smooth.textContent = 'Smoothed ' + Number(row.smoothed_rssi).toFixed(1) + ' dBm';
+            td.appendChild(smooth);
+        }
+        return td;
+    }
+
+    function lastSeenCell(row) {
+        const td = document.createElement('td');
+        const relative = document.createElement('span');
+        relative.className = 'rssi-value relative-time';
+        relative.dataset.timestamp = row.last_seen || '';
+        relative.textContent = relativeTime(row.last_seen);
+        td.appendChild(relative);
+        if (row.last_seen) {
+            const exact = document.createElement('span');
+            exact.className = 'cell-subtext';
+            exact.textContent = new Date(row.last_seen).toLocaleTimeString([], {
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+            td.appendChild(exact);
+        }
+        return td;
+    }
+
+    function receiverCell(row) {
+        const td = document.createElement('td');
+        if (!row.receiver) {
+            td.textContent = 'No observation';
+            return td;
+        }
+        const name = document.createElement('span');
+        name.className = 'rssi-value';
+        name.textContent = row.receiver.name;
+        const location = document.createElement('span');
+        location.className = 'cell-subtext';
+        location.textContent = row.receiver.location || row.receiver.receiver_id;
+        td.append(name, location);
+        return td;
+    }
+
+    function matches(row) {
+        const query = searchInput.value.trim().toLowerCase();
+        const haystack = [
+            row.goat.goat_id, row.goat.name,
+            row.beacon.device_name, row.beacon.mac_address
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (query && !haystack.includes(query)) return false;
+        if (activeFilter === 'all') return true;
+        if (['detected', 'possibly_lost', 'out_of_range'].includes(activeFilter)) {
+            return row.status === activeFilter;
+        }
+        return row.status === 'detected' && row.proximity === activeFilter;
+    }
+
+    function renderRows() {
+        rowsBody.replaceChildren();
+        const visibleRows = rows.filter(matches);
+        if (!visibleRows.length) {
+            const tr = document.createElement('tr');
+            const message = rows.length
+                ? 'No goats match the current filter.'
+                : 'No enabled BLE trackers are assigned.';
+            const td = textCell(message, 'tracking-empty');
+            td.colSpan = 7;
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-broadcast';
+            td.prepend(icon);
+            tr.appendChild(td);
+            rowsBody.appendChild(tr);
+            return;
+        }
+        for (const row of visibleRows) {
+            const tr = document.createElement('tr');
+            const proximity = document.createElement('td');
+            proximity.appendChild(statusPill(row.proximity, row.proximity_display));
+            const status = document.createElement('td');
+            status.appendChild(statusPill(row.status, row.status_display));
+            tr.append(
+                goatCell(row), beaconCell(row), rssiCell(row), proximity,
+                lastSeenCell(row), status, receiverCell(row)
+            );
+            rowsBody.appendChild(tr);
+        }
+    }
+
+    function radarMarker(row, position) {
+        const marker = document.createElement('a');
+        marker.className = 'radar-marker ' + row.status;
+        marker.href = row.goat.detail_url;
+        marker.style.left = position.left + '%';
+        marker.style.top = position.top + '%';
+        const seen = relativeTime(row.last_seen);
+        const rssi = row.current_rssi === null ? 'No signal' : row.current_rssi + ' dBm';
+        marker.title = row.goat.goat_id + ' · ' + rssi + ' · ' +
+            row.proximity_display + ' · ' + seen;
+        marker.setAttribute('aria-label', marker.title + '. Open goat profile.');
+
+        const head = document.createElement('span');
+        head.className = 'radar-marker-head';
+        if (row.goat.image_url) {
+            const image = document.createElement('img');
+            image.className = 'radar-marker-avatar';
+            image.src = row.goat.image_url;
+            image.alt = '';
+            head.appendChild(image);
+        }
+        const id = document.createElement('span');
+        id.className = 'radar-marker-id';
+        id.textContent = row.goat.goat_id;
+        head.appendChild(id);
+
+        const reading = document.createElement('span');
+        reading.className = 'radar-marker-reading';
+        reading.textContent = rssi + ' · ' + row.proximity_display;
+        const lastSeen = document.createElement('span');
+        lastSeen.className = 'radar-marker-seen relative-time';
+        lastSeen.dataset.timestamp = row.last_seen || '';
+        lastSeen.textContent = 'Seen ' + seen;
+        marker.append(head, reading, lastSeen);
+        return marker;
+    }
+
+    function renderRadar(receivers) {
+        radarMarkers.replaceChildren();
+        const radarRows = focusGoatId
+            ? rows.filter(row => row.goat.goat_id === focusGoatId)
+            : rows;
+        const visible = radarRows.filter(row =>
+            row.status !== 'out_of_range' &&
+            ['very_near', 'near', 'medium', 'far'].includes(row.proximity)
+        );
+        const byProximity = {very_near: [], near: [], medium: [], far: []};
+        visible.forEach(row => byProximity[row.proximity].push(row));
+        Object.values(byProximity).forEach(group => {
+            group.sort((a, b) => a.goat.goat_id.localeCompare(b.goat.goat_id));
+        });
+        const radii = {very_near: 17, near: 24, medium: 33, far: 41};
+        const phases = {very_near: 0.3, near: 1.0, medium: 0.55, far: 1.25};
+        for (const [proximity, group] of Object.entries(byProximity)) {
+            group.forEach((row, index) => {
+                const angle = phases[proximity] + (Math.PI * 2 * index / group.length);
+                const radius = radii[proximity];
+                const position = {
+                    left: 50 + radius * Math.cos(angle),
+                    top: 50 + radius * Math.sin(angle)
+                };
+                radarMarkers.appendChild(radarMarker(row, position));
+            });
+        }
+        radarEmpty.hidden = visible.length > 0;
+
+        const absent = radarRows.filter(row => row.status === 'out_of_range');
+        radarAbsent.replaceChildren();
+        const label = document.createElement('strong');
+        label.textContent = 'Out of range: ';
+        radarAbsent.appendChild(label);
+        radarAbsent.appendChild(document.createTextNode(
+            absent.length
+                ? absent.map(row => row.goat.goat_id).join(', ')
+                : 'None'
+        ));
+        const receiver = receivers[0];
+        document.getElementById('radarReceiverName').textContent =
+            receiver ? receiver.name : 'BLE Receiver';
+    }
+
+    function renderFindGoat() {
+        if (!focusGoatId) return;
+        const row = rows.find(item => item.goat.goat_id === focusGoatId);
+        const meter = document.getElementById('findSignalMeter');
+        const segments = meter.querySelectorAll('.find-signal-segment');
+        if (!row) {
+            segments.forEach(segment => segment.classList.remove('active'));
+            meter.setAttribute('aria-valuenow', '0');
+            document.getElementById('findSignalLabel').textContent = 'Tracker unavailable';
+            document.getElementById('findGuidance').textContent =
+                'This tracker is no longer available. Return to the goat profile to review its assignment.';
+            return;
+        }
+
+        const levels = {very_near: 10, near: 8, medium: 6, far: 3};
+        let level = row.status === 'detected' ? (levels[row.proximity] || 0) : 0;
+        if (row.status === 'possibly_lost') {
+            level = Math.max(1, (levels[row.proximity] || 0) - 3);
+        }
+        segments.forEach((segment, index) => {
+            segment.classList.toggle('active', index < level);
+        });
+        meter.dataset.proximity = row.proximity;
+        meter.setAttribute('aria-valuenow', String(level));
+
+        const strengthLabels = {
+            very_near: 'Very strong · VERY NEAR',
+            near: 'Strong · NEAR',
+            medium: 'Moderate · MEDIUM',
+            far: 'Weak · FAR',
+            out_of_range: 'No recent signal · OUT OF RANGE'
+        };
+        let signalLabel = strengthLabels[row.proximity] || 'No recent signal';
+        if (row.status === 'possibly_lost') signalLabel = 'Signal interrupted · POSSIBLY LOST';
+        document.getElementById('findSignalLabel').textContent = signalLabel;
+        document.getElementById('findBeaconName').textContent =
+            row.beacon.device_name || 'BLE tracker';
+        document.getElementById('findRssiLabel').textContent =
+            row.status === 'detected' ? 'Current RSSI' : 'Last RSSI';
+        document.getElementById('findRssi').textContent =
+            row.current_rssi === null
+                ? '—'
+                : row.current_rssi + ' dBm' + (row.status === 'detected' ? '' : ' (stale)');
+        document.getElementById('findProximity').textContent = row.proximity_display;
+        document.getElementById('findLastSeen').textContent = relativeTime(row.last_seen);
+        document.getElementById('findStatus').textContent = row.status_display;
+
+        const avatar = document.getElementById('findGoatAvatar');
+        avatar.replaceChildren();
+        if (row.goat.image_url) {
+            const image = document.createElement('img');
+            image.className = 'find-goat-avatar-image';
+            image.src = row.goat.image_url;
+            image.alt = row.goat.goat_id;
+            avatar.appendChild(image);
+        } else {
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-camera';
+            avatar.appendChild(icon);
+        }
+
+        const guidance = {
+            very_near: 'Very strong signal. Check the immediate area around the receiver.',
+            near: 'Signal is strong. Continue moving carefully through the nearby area.',
+            medium: 'Moderate signal. Move through nearby areas and watch for a stronger reading.',
+            far: 'Weak signal. Keep the scanner running while moving through the goat house.',
+            out_of_range: 'No recent advertisement. Keep scanning and move through nearby areas.'
+        };
+        document.getElementById('findGuidance').textContent =
+            row.status === 'possibly_lost'
+                ? 'The signal was recently missed. Pause briefly or continue scanning nearby.'
+                : guidance[row.proximity];
+    }
+
+    function renderSummary(summary) {
+        for (const [key, id] of Object.entries(statIds)) {
+            document.getElementById(id).textContent = summary[key] ?? 0;
+        }
+    }
+
+    function renderReceiver(receivers) {
+        const receiver = receivers[0];
+        const title = document.getElementById('receiverTitle');
+        const meta = document.getElementById('receiverMeta');
+        if (!receiver) {
+            title.textContent = 'No BLE receiver configured';
+            meta.textContent = 'Provision a receiver before starting live tracking.';
+            return;
+        }
+        title.textContent = receiver.name;
+        meta.textContent = (receiver.location || receiver.receiver_id) +
+            ' · ' + receiver.platform + ' · ' + receiver.status;
+    }
+
+    async function refresh() {
+        if (requestRunning || document.hidden) return;
+        requestRunning = true;
+        try {
+            const response = await fetch(apiUrl, {
+                credentials: 'same-origin',
+                headers: {'Accept': 'application/json'},
+                cache: 'no-store'
+            });
+            if (response.status === 401 || response.status === 403) {
+                window.location.href = '/accounts/login/?next=' +
+                    encodeURIComponent(location.pathname);
+                return;
+            }
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            const data = await response.json();
+            rows = data.goats || [];
+            renderSummary(data.summary || {});
+            renderReceiver(data.receivers || []);
+            renderRadar(data.receivers || []);
+            renderFindGoat();
+            renderRows();
+            document.getElementById('timeoutHelp').textContent =
+                'Possibly Lost after ' + data.timing.possibly_lost_timeout_seconds +
+                's · Out of Range after ' + data.timing.out_of_range_timeout_seconds + 's';
+            lastRefresh = new Date();
+            liveState.className = 'live-state online';
+            liveText.textContent = 'Live updates connected';
+        } catch (error) {
+            liveState.className = 'live-state error';
+            liveText.textContent = 'Update unavailable';
+        } finally {
+            requestRunning = false;
+        }
+    }
+
+    document.getElementById('trackingFilters').addEventListener('click', event => {
+        const button = event.target.closest('[data-filter]');
+        if (!button) return;
+        activeFilter = button.dataset.filter;
+        document.querySelectorAll('.tracking-filter').forEach(item => {
+            item.classList.toggle('active', item === button);
+        });
+        renderRows();
+    });
+    searchInput.addEventListener('input', renderRows);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) refresh();
+    });
+    setInterval(() => {
+        document.querySelectorAll('.relative-time').forEach(element => {
+            element.textContent = relativeTime(element.dataset.timestamp || null);
+        });
+        refreshNote.textContent = lastRefresh
+            ? 'Updated ' + relativeTime(lastRefresh.toISOString())
+            : 'Waiting for first update…';
+    }, 1000);
+    refresh();
+    setInterval(refresh, 2000);
+})();
+</script>
+{% endblock %}

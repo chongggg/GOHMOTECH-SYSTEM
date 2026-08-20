@@ -1,0 +1,43 @@
+"""
+URL configuration for KaMoTech.
+
+Web Pages (MTV Pattern):
+    - / : Main dashboard home
+    - /detection/ : Live goat detection feed
+    - /feeding/ : Feeding system dashboard
+    - /analytics/ : Analytics and reports
+    - /admin/ : Django admin panel
+
+API Endpoints (Optional for AJAX/Mobile):
+    - /api/iot/ : IoT devices and sensors
+    - /api/ml/ : ML models and detection
+    - /api/feeding/ : Feeding system
+    - /api/analytics/ : Analytics and reports
+"""
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+
+urlpatterns = [
+    # Admin panel
+    path('admin/', admin.site.urls),
+    
+    # Main web pages (Django templates - MTV pattern)
+    path('', include('dashboard.urls')),  # Home dashboard
+    path('iot/', include(('iot.urls', 'iot'), namespace='iot')),  # IoT devices
+    path('ml/', include('ml_models.urls')),  # ML detection
+    path('feeding/', include('feeding.urls')),  # Feeding system
+    path('analytics/', include('analytics.urls')),  # Analytics
+    path('security/', include('security.urls')),  # Security & notifications
+    path('sms/', include(('sms.urls', 'sms'), namespace='sms')),  # SMS notifications
+    path('marketplace/', include(('marketplace.urls', 'marketplace'), namespace='marketplace')),
+
+    # Authentication (Django built-in)
+    path('accounts/', include('django.contrib.auth.urls')),
+]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -1,0 +1,218 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block header_title %}Missing Goat Alerts{% endblock %}
+
+{% block extra_css %}
+    .alert-item {
+        border-left: 4px solid var(--border-strong);
+    }
+    .alert-item.alert-severity-high { border-left-color: var(--danger); }
+    .alert-item.alert-severity-medium { border-left-color: var(--warning); }
+    .alert-item.alert-severity-low { border-left-color: var(--info); }
+
+    .sev-badge-high { background: var(--danger-bg); color: var(--danger); }
+    .sev-badge-medium { background: var(--warning-bg); color: var(--warning); }
+    .sev-badge-low { background: var(--info-bg); color: var(--info-text); }
+
+    .alert-tabs {
+        display: flex;
+        gap: var(--spacing-xs);
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: var(--spacing-lg);
+    }
+    .alert-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding: 0.6rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        transition: color var(--transition-fast), border-color var(--transition-fast);
+    }
+    .alert-tab:hover { color: var(--primary-600); }
+    .alert-tab.active {
+        color: var(--primary-700);
+        border-bottom-color: var(--primary-600);
+    }
+    .resolved-note {
+        margin-top: var(--spacing-md);
+        padding: var(--spacing-md);
+        background: var(--card-bg-subtle);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+    }
+    .missing-goat-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.6rem;
+        border-radius: var(--radius-full);
+        background: var(--warning-bg);
+        color: var(--warning);
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin: 2px;
+    }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-eyebrow">Security</div>
+        <h1>Missing Goat Alerts</h1>
+        <p class="page-subtitle">Head-count anomalies detected by the monitoring system</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'iot:goat_inventory' %}" class="btn btn-outline">
+            <i class="bi bi-list-ul"></i> Back to Inventory
+        </a>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="stat-grid" style="margin-bottom: var(--spacing-xl);">
+    <div class="stat-card">
+        <div class="stat-icon red"><i class="bi bi-exclamation-octagon"></i></div>
+        <p class="stat-label">Active Alerts</p>
+        <p class="stat-value">{{ active_alerts }}</p>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="bi bi-check2-circle"></i></div>
+        <p class="stat-label">Resolved</p>
+        <p class="stat-value">{{ resolved_alerts }}</p>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon yellow"><i class="bi bi-flag"></i></div>
+        <p class="stat-label">High Priority</p>
+        <p class="stat-value">{{ high_severity }}</p>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="bi bi-clock-history"></i></div>
+        <p class="stat-label">Total All Time</p>
+        <p class="stat-value">{{ total_alerts }}</p>
+    </div>
+</div>
+
+<!-- Filter Tabs -->
+<div class="alert-tabs">
+    <a class="alert-tab {% if not show_resolved %}active{% endif %}" href="?show_resolved=false">
+        Active <span class="badge badge-danger">{{ active_alerts }}</span>
+    </a>
+    <a class="alert-tab {% if show_resolved %}active{% endif %}" href="?show_resolved=true">
+        All Alerts
+    </a>
+</div>
+
+<!-- Alerts List -->
+{% if alerts %}
+    {% for alert in alerts %}
+    <div class="content-card alert-item alert-severity-{{ alert.severity }}">
+        <div class="card-header-custom">
+            <div class="pill-row">
+                <span class="badge sev-badge-{{ alert.severity }}">{{ alert.get_severity_display|upper }}</span>
+                {% if not alert.is_resolved %}
+                    <span class="badge badge-danger">ACTIVE</span>
+                {% else %}
+                    <span class="badge badge-success">RESOLVED</span>
+                {% endif %}
+                <span class="text-muted">{{ alert.triggered_at|date:"M d, Y H:i" }}</span>
+            </div>
+            {% if not alert.is_resolved %}
+            <form method="post" action="{% url 'iot:resolve_alert' alert.id %}" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> Mark Resolved
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        <h5 style="margin-bottom: var(--spacing-xs);">{{ alert.title }}</h5>
+        <p>{{ alert.message }}</p>
+
+        <div class="row mt-3">
+            <div class="col-md-4 detection-meta-row"><strong>Expected:</strong> {{ alert.expected_count }} goats</div>
+            <div class="col-md-4 detection-meta-row"><strong>Detected:</strong> {{ alert.detected_count }} goats</div>
+            <div class="col-md-4 detection-meta-row"><strong>Missing:</strong> <span class="text-danger">{{ alert.expected_count|add:"-alert.detected_count" }} goats</span></div>
+        </div>
+
+        {% if alert.missing_goat_list %}
+        <div class="mt-3">
+            <strong>Missing Goats:</strong>
+            <div class="pill-row mt-1">
+                {% for goat in alert.missing_goat_list %}
+                    <a href="{% url 'iot:goat_detail_enhanced' goat.goat_id %}" class="missing-goat-chip">{{ goat.goat_id }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if alert.automation_action_taken %}
+        <div class="mt-2"><strong>Action Taken:</strong> {{ alert.automation_action_taken }}</div>
+        {% endif %}
+
+        {% if alert.is_resolved %}
+        <div class="resolved-note">
+            <strong><i class="bi bi-check-circle text-success"></i> Resolved</strong><br>
+            <small class="text-muted">
+                {{ alert.resolved_at|date:"M d, Y H:i" }}
+                {% if alert.resolved_by %}by {{ alert.resolved_by.username }}{% endif %}
+            </small>
+            {% if alert.resolution_notes %}
+                <p class="mt-2 mb-0">{{ alert.resolution_notes }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if is_paginated %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if filter %}&filter={{ filter }}{% endif %}">First</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter %}&filter={{ filter }}{% endif %}">Previous</a>
+                </li>
+            {% endif %}
+            <li class="page-item active">
+                <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter %}&filter={{ filter }}{% endif %}">Next</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filter %}&filter={{ filter }}{% endif %}">Last</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+{% else %}
+    <div class="content-card">
+        <div class="empty-state">
+            <i class="bi bi-shield-check" style="color: var(--success);"></i>
+            <h5>No alerts found</h5>
+            <p>{% if not show_resolved %}All goats are accounted for!{% else %}There are no alerts on record.{% endif %}</p>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-refresh active alerts every 30 seconds
+{% if not show_resolved %}
+setTimeout(function() {
+    location.reload();
+}, 30000);
+{% endif %}
+</script>
+{% endblock %}

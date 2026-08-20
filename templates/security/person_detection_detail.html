@@ -1,0 +1,52 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Detection #{{ detection.id }} - GoHMoTech{% endblock %}
+{% block header_title %}Person Detection{% endblock %}
+
+{% block content %}
+<div class="page-content">
+    <a href="/security/" class="btn btn-sm btn-outline-secondary mb-3">
+        <i class="bi bi-arrow-left"></i> Back to Security
+    </a>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            {% if detection.snapshot %}
+            <img src="{{ detection.snapshot.url }}" class="img-fluid rounded border"
+                 alt="Detection snapshot">
+            {% else %}
+            <div class="border rounded d-flex align-items-center justify-content-center"
+                 style="min-height: 240px; color: var(--text-secondary);">
+                No snapshot captured
+            </div>
+            {% endif %}
+        </div>
+        <div class="col-md-6">
+            <h4 class="mb-3">{{ detection.get_detection_type_display }}</h4>
+            <table class="table">
+                <tr><th>Date / time</th><td>{{ detection.detected_at }}</td></tr>
+                <tr><th>Source</th><td>{{ detection.source_display }}</td></tr>
+                <tr><th>Confidence</th><td>{{ detection.confidence|floatformat:2 }}</td></tr>
+                <tr><th>Status</th><td>{{ detection.get_status_display }}</td></tr>
+                <tr><th>Review state</th><td>{{ detection.get_review_state_display }}</td></tr>
+                {% if detection.reviewed_by %}
+                <tr><th>Reviewed by</th><td>{{ detection.reviewed_by.username }} at {{ detection.reviewed_at }}</td></tr>
+                {% endif %}
+                {% if detection.review_notes %}
+                <tr><th>Review notes</th><td>{{ detection.review_notes }}</td></tr>
+                {% endif %}
+                {% if detection.notification %}
+                <tr><th>Linked alert</th>
+                    <td>#{{ detection.notification.id }} — {{ detection.notification.get_severity_display }}
+                        ({% if detection.notification.is_resolved %}resolved{% else %}open{% endif %})</td></tr>
+                {% endif %}
+            </table>
+            <p class="text-muted" style="font-size: 0.85rem;">
+                This record only notes that a {{ detection.get_detection_type_display|lower }} occurred.
+                No face recognition or identity matching is performed.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

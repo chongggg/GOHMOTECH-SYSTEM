@@ -1,0 +1,64 @@
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count
+from iot.models import Device
+from ml_models.models import Detection
+from feeding.models import FeedLog
+from marketplace.auth import is_marketplace_buyer
+
+
+@login_required
+def dashboard_home_view(request):
+    """Role-based landing redirect after login."""
+    if is_marketplace_buyer(request.user):
+        return redirect('/marketplace/')
+    if request.user.is_staff or request.user.is_superuser:
+        return redirect('/iot/')
+    return redirect('/iot/owner/')
+
+
+@login_required
+def new_features_view(request):
+    """New features guide page"""
+    return render(request, 'dashboard/new_features.html', {
+        'page_title': 'New Features Guide'
+    })
+
+
+@login_required
+def overview_view(request):
+    """System overview page"""
+    devices = Device.objects.filter(is_active=True)
+    
+    # Group devices by type
+    devices_by_type = devices.values('device_type').annotate(count=Count('id'))
+    
+    # Recent activity
+    recent_detections = Detection.objects.select_related('camera').order_by('-timestamp')[:10]
+    recent_feeds = FeedLog.objects.select_related('feeder').order_by('-timestamp')[:10]
+    
+    context = {
+        'devices': devices,
+        'devices_by_type': devices_by_type,
+        'recent_detections': recent_detections,
+        'recent_feeds': recent_feeds,
+        'page_title': 'System Overview'
+    }
+    
+    return render(request, 'dashboard/overview.html', context)
+
+
+@login_required
+def farm_map_view(request):
+    """Farm map visualization page"""
+    devices = Device.objects.filter(is_active=True)
+    
+    # Group devices by location
+    devices_with_location = devices.exclude(location='')
+    
+    context = {
+        'devices': devices_with_location,
+        'page_title': 'Farm Map'
+    }
+    
+    return render(request, 'dashboard/farm_map.html', context)

@@ -1,0 +1,255 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}{{ report.title }} - GoHMoTech{% endblock %}
+{% block header_title %}{{ report.title }}{% endblock %}
+
+{% block extra_css %}
+    /* ============================================================
+       Report detail — page-scoped styles (all under .rpt-page)
+       Reuses global design tokens; adds no global rules.
+       ============================================================ */
+    .rpt-page { width: 100%; }
+
+    .rpt-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-xl);
+    }
+    .rpt-toolbar .rpt-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-md);
+        flex: 1 1 auto;
+        align-items: flex-end;
+    }
+    .rpt-field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 150px; }
+    .rpt-field label {
+        font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
+        text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .rpt-field .form-select,
+    .rpt-field .form-control { min-height: 44px; }
+    .rpt-actions { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; }
+    .rpt-actions .btn { min-height: 44px; display: inline-flex; align-items: center; gap: 0.4rem; }
+
+    .rpt-note {
+        display: flex; gap: 0.6rem; align-items: flex-start;
+        background: var(--info-bg); color: var(--info-text);
+        border-radius: var(--radius-md); padding: 0.8rem 1rem;
+        font-size: 0.875rem; line-height: 1.45;
+        margin-bottom: var(--spacing-xl);
+    }
+    .rpt-note i { margin-top: 0.15rem; }
+
+    .rpt-charts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: var(--spacing-lg);
+        margin-bottom: var(--spacing-xl);
+    }
+    .rpt-chart-card {
+        background: var(--card-bg); border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg); padding: var(--spacing-lg);
+        box-shadow: var(--shadow-sm);
+    }
+    .rpt-chart-title {
+        font-size: 0.95rem; font-weight: 700; color: var(--text-primary);
+        margin-bottom: var(--spacing-md);
+    }
+    .rpt-chart-canvas-wrap { position: relative; height: 260px; }
+
+    .rpt-table-wrap { overflow-x: auto; }
+    .rpt-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .rpt-table th, .rpt-table td {
+        padding: 0.65rem 0.8rem; text-align: left; white-space: nowrap;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .rpt-table th {
+        font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em;
+        color: var(--text-secondary); background: var(--card-bg-subtle);
+        position: sticky; top: 0;
+    }
+    .rpt-table tbody tr:hover { background: var(--card-bg-subtle); }
+    .rpt-table td { color: var(--text-primary); }
+
+    @media (max-width: 640px) {
+        .rpt-toolbar { flex-direction: column; align-items: stretch; }
+        .rpt-actions .btn { flex: 1 1 auto; justify-content: center; }
+    }
+{% endblock %}
+
+{% block content %}
+<div class="rpt-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <div class="page-eyebrow">{{ report.category }} Report</div>
+            <h1>{{ report.title }}</h1>
+            <p class="page-subtitle">{{ report.description }}</p>
+        </div>
+        <div class="page-actions">
+            <a href="{% url 'analytics:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Report Center
+            </a>
+        </div>
+    </div>
+
+    <!-- Toolbar: filters + export/print actions -->
+    <div class="content-card" style="margin-bottom: var(--spacing-xl);">
+        <div class="rpt-toolbar" style="margin-bottom: 0;">
+            <form method="get" id="reportFilterForm" class="rpt-filters">
+                {% for field in report.filter_form %}
+                <div class="rpt-field">
+                    <label for="f_{{ field.name }}">{{ field.label }}</label>
+                    {% if field.kind == 'select' %}
+                    <select id="f_{{ field.name }}" name="{{ field.name }}" class="form-select"
+                            onchange="document.getElementById('reportFilterForm').submit()">
+                        {% for opt_value, opt_label in field.options %}
+                        <option value="{{ opt_value }}" {% if opt_value == field.value %}selected{% endif %}>{{ opt_label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <input id="f_{{ field.name }}" type="text" name="{{ field.name }}"
+                           class="form-control" placeholder="{{ field.label }}" value="{{ field.value }}">
+                    {% endif %}
+                </div>
+                {% endfor %}
+                <div class="rpt-field" style="min-width: auto;">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Apply</button>
+                </div>
+            </form>
+            <div class="rpt-actions">
+                <a href="{{ export_url }}?{{ request.GET.urlencode }}&format=csv" class="btn btn-outline-secondary">
+                    <i class="bi bi-filetype-csv"></i> CSV
+                </a>
+                <a href="{{ export_url }}?{{ request.GET.urlencode }}&format=xlsx" class="btn btn-outline-secondary">
+                    <i class="bi bi-file-earmark-excel"></i> Excel
+                </a>
+                <a href="{{ print_url }}?{{ request.GET.urlencode }}" target="_blank" class="btn btn-outline-primary">
+                    <i class="bi bi-printer"></i> Print / PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data-availability note -->
+    {% if report.note %}
+    <div class="rpt-note">
+        <i class="bi bi-info-circle-fill"></i>
+        <span>{{ report.note }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Summary KPI cards -->
+    {% if report.summary %}
+    <div class="stat-grid" style="margin-bottom: var(--spacing-xl);">
+        {% for card in report.summary %}
+        <div class="stat-card">
+            <div class="stat-icon {{ card.color }}"><i class="bi {{ card.icon }}"></i></div>
+            <p class="stat-label">{{ card.label }}</p>
+            <p class="stat-value">{{ card.value }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Charts -->
+    {% if report.charts %}
+    <div class="rpt-charts">
+        {% for chart in report.charts %}
+        <div class="rpt-chart-card">
+            <div class="rpt-chart-title">{{ chart.title }}</div>
+            <div class="rpt-chart-canvas-wrap">
+                <canvas id="chart_{{ chart.id }}"></canvas>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Detail table -->
+    <div class="content-card">
+        <div class="card-header-custom">
+            <h5><i class="bi bi-table"></i> Detailed Data</h5>
+            <span class="page-subtitle" style="margin:0;">{{ report.rows|length }} row{{ report.rows|length|pluralize }}</span>
+        </div>
+        {% if report.rows %}
+        <div class="rpt-table-wrap">
+            <table class="rpt-table">
+                <thead>
+                    <tr>{% for col in report.columns %}<th>{{ col }}</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                    {% for row in report.rows %}
+                    <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <h5>No data for this selection</h5>
+            <p>Try a different filter or a wider time period.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+{{ report.charts|json_script:"chart-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const charts = JSON.parse(document.getElementById('chart-data').textContent);
+    const palette = ['#1F6F3D', '#0EA5E9', '#EAB308', '#8B5CF6', '#EF4444',
+                     '#14B8A6', '#F97316', '#6366F1', '#84CC16', '#EC4899'];
+    const gridColor = getComputedStyle(document.body).getPropertyValue('--border-color') || '#e5e7eb';
+
+    charts.forEach(function (chart) {
+        const canvas = document.getElementById('chart_' + chart.id);
+        if (!canvas) return;
+        const isPie = chart.type === 'doughnut';
+        const datasets = chart.datasets.map(function (ds, i) {
+            if (isPie) {
+                return { label: ds.label, data: ds.data, backgroundColor: palette, borderWidth: 0 };
+            }
+            const color = palette[i % palette.length];
+            return {
+                label: ds.label,
+                data: ds.data,
+                backgroundColor: chart.type === 'line' ? 'transparent' : color,
+                borderColor: color,
+                borderWidth: 2,
+                tension: 0.3,
+                pointRadius: chart.type === 'line' ? 2 : 0,
+                fill: false,
+            };
+        });
+        new Chart(canvas, {
+            type: chart.type,
+            data: { labels: chart.labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: isPie || chart.datasets.length > 1, position: 'bottom' }
+                },
+                scales: isPie ? {} : {
+                    x: { grid: { color: gridColor } },
+                    y: { beginAtZero: true, grid: { color: gridColor } }
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

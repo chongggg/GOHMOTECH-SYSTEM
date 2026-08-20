@@ -1,0 +1,199 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}{{ device.name }} - Device Details{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'iot:devices_list' %}">Devices</a></li>
+                    <li class="breadcrumb-item active">{{ device.name }}</li>
+                </ol>
+            </nav>
+            <h1>
+                {% if device.is_active %}
+                    <i class="bi bi-circle-fill text-success me-2"></i>
+                {% else %}
+                    <i class="bi bi-circle-fill text-secondary me-2"></i>
+                {% endif %}
+                {{ device.name }}
+            </h1>
+            <p class="text-muted">Device ID: <code>{{ device.device_id }}</code></p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Device Information -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Device Information</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Name:</th>
+                            <td>{{ device.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Type:</th>
+                            <td><span class="badge bg-info">{{ device.device_type }}</span></td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if device.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Location:</th>
+                            <td>{{ device.location|default:"Not specified" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Added:</th>
+                            <td>{{ device.created_at|date:"M d, Y" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Last Updated:</th>
+                            <td>{{ device.updated_at|date:"M d, Y H:i" }}</td>
+                        </tr>
+                    </table>
+                    
+                    <div class="d-grid gap-2 mt-3">
+                        <a href="/admin/iot/device/{{ device.id }}/change/" class="btn btn-primary">
+                            <i class="bi bi-pencil"></i> Edit Device
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sensor Statistics -->
+            {% if sensor_stats %}
+            <div class="card shadow mt-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Sensor Statistics (24h)</h5>
+                </div>
+                <div class="card-body">
+                    {% for stat in sensor_stats %}
+                    <div class="mb-3">
+                        <h6 class="mb-2">{{ stat.sensor_type|title }}</h6>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td>Average:</td>
+                                <td><strong>{{ stat.avg_value|floatformat:2 }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Min:</td>
+                                <td>{{ stat.min_value|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Max:</td>
+                                <td>{{ stat.max_value|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <td>Readings:</td>
+                                <td>{{ stat.count }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    {% if not forloop.last %}<hr>{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Recent Data and Alerts -->
+        <div class="col-md-8 mb-4">
+            <!-- Recent Alerts -->
+            {% if alerts %}
+            <div class="card shadow mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Recent Alerts ({{ alerts|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Severity</th>
+                                    <th>Message</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for alert in alerts %}
+                                <tr>
+                                    <td>{{ alert.timestamp|date:"M d, H:i" }}</td>
+                                    <td>
+                                        {% if alert.severity == 'critical' %}
+                                            <span class="badge bg-danger">Critical</span>
+                                        {% elif alert.severity == 'warning' %}
+                                            <span class="badge bg-warning">Warning</span>
+                                        {% else %}
+                                            <span class="badge bg-info">Info</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ alert.message }}</td>
+                                    <td>
+                                        {% if alert.is_resolved %}
+                                            <span class="badge bg-success">Resolved</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Active</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Recent Sensor Data -->
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Recent Sensor Data (Last 24 hours)</h5>
+                </div>
+                <div class="card-body">
+                    {% if sensor_data %}
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-sm table-striped table-hover">
+                                <thead class="sticky-top bg-light">
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Sensor Type</th>
+                                        <th>Value</th>
+                                        <th>Unit</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for data in sensor_data %}
+                                    <tr>
+                                        <td>{{ data.timestamp|date:"M d, H:i:s" }}</td>
+                                        <td><span class="badge bg-secondary">{{ data.sensor_type }}</span></td>
+                                        <td><strong>{{ data.value }}</strong></td>
+                                        <td>{{ data.unit }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-5">No sensor data recorded in the last 24 hours</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,1046 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Manage {{ goat.goat_id }} - GoHMoTech{% endblock %}
+{% block header_title %}Manage Goat{% endblock %}
+
+{% block extra_css %}
+    /* ============================================================
+       Goat Manage Page — livestock record management
+       Edit all info, manage vaccinations, and image gallery in one place.
+       Touch-friendly for farmers/caretakers.
+       ============================================================ */
+
+    .manage-page { width: 100%; max-width: 1200px; margin: 0 auto; }
+
+    /* Touch-friendly controls */
+    .manage-page .btn { min-height: 46px; display: inline-flex; align-items: center; gap: 0.45rem; }
+    .manage-page .btn-sm { min-height: 42px; }
+    .manage-page .form-select,
+    .manage-page .form-control { min-height: 46px; font-size: 1rem; }
+    .manage-page .form-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    /* Section cards */
+    .info-section {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+        margin-bottom: var(--spacing-xl);
+        box-shadow: var(--shadow-sm);
+    }
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: var(--spacing-lg);
+        padding-bottom: var(--spacing-md);
+        border-bottom: 2px solid var(--border-color);
+    }
+    .section-header h3 {
+        font-family: var(--font-heading, inherit);
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+        flex: 1;
+    }
+    .section-header i { color: var(--primary-600); font-size: 1.5rem; }
+    .section-header .btn i { font-size: inherit; }
+
+    /* Status badge */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 0.9rem;
+        border-radius: var(--radius-full);
+        font-size: 0.875rem;
+        font-weight: 700;
+        text-transform: capitalize;
+    }
+    .status-badge::before {
+        content: "";
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+    .status-active  { background: var(--success-bg); color: var(--success); }
+    .status-sold    { background: var(--info-bg);    color: var(--info-text); }
+    .status-dead    { background: var(--danger-bg);  color: var(--danger); }
+    .status-missing { background: var(--warning-bg); color: var(--warning); }
+
+    /* Weight monitoring */
+    .weight-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+        gap: var(--spacing-lg);
+    }
+    .weight-panel {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-lg);
+        background: var(--card-bg-subtle);
+    }
+    .weight-mode-switch {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-lg);
+    }
+    .weight-mode-switch .btn.active {
+        background: var(--primary-600);
+        border-color: var(--primary-600);
+        color: white;
+    }
+    .weight-reading {
+        font-size: clamp(2.3rem, 6vw, 4.5rem);
+        line-height: 1;
+        font-weight: 800;
+        color: var(--primary-700);
+        letter-spacing: -0.04em;
+        margin: var(--spacing-lg) 0 var(--spacing-sm);
+    }
+    .weight-reading small {
+        font-size: 0.32em;
+        font-weight: 700;
+        letter-spacing: 0;
+        color: var(--text-secondary);
+    }
+    .scale-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.45rem 0.85rem;
+        border-radius: var(--radius-full);
+        font-size: 0.85rem;
+        font-weight: 700;
+        background: var(--card-bg);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+    }
+    .scale-state::before {
+        content: "";
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+    .scale-state.success { background: var(--success-bg); color: var(--success); }
+    .scale-state.warning { background: var(--warning-bg); color: var(--warning); }
+    .scale-state.danger { background: var(--danger-bg); color: var(--danger); }
+    .weight-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-top: var(--spacing-lg); }
+    .weight-confirmation dl { margin: 0; }
+    .weight-confirmation div {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.55rem 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .weight-confirmation div:last-child { border-bottom: 0; }
+    .weight-confirmation dt { color: var(--text-secondary); font-weight: 600; }
+    .weight-confirmation dd { margin: 0; text-align: right; font-weight: 700; color: var(--text-primary); }
+    .weight-feedback { display: none; margin-top: var(--spacing-md); }
+    .weight-history { overflow-x: auto; margin-top: var(--spacing-xl); }
+    .weight-history table { width: 100%; border-collapse: collapse; }
+    .weight-history th,
+    .weight-history td { padding: 0.8rem; border-bottom: 1px solid var(--border-color); text-align: left; }
+    .weight-history th { color: var(--text-secondary); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .weight-history .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* Image gallery */
+    .image-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: var(--spacing-md);
+        margin-top: var(--spacing-lg);
+    }
+    .gallery-item {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        border: 2px solid var(--border-color);
+        background: var(--card-bg-subtle);
+        transition: border-color var(--transition-fast);
+    }
+    .gallery-item:hover { border-color: var(--primary-500); }
+    .gallery-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .gallery-item-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+    }
+    .gallery-item:hover .gallery-item-overlay { opacity: 1; }
+    .delete-image-btn {
+        background: var(--danger);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-md);
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: background var(--transition-fast);
+    }
+    .delete-image-btn:hover { background: #dc2626; }
+
+    /* Upload area */
+    .upload-area {
+        border: 2px dashed var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+        text-align: center;
+        background: var(--card-bg-subtle);
+        margin-top: var(--spacing-lg);
+        transition: border-color var(--transition-fast), background var(--transition-fast);
+        cursor: pointer;
+    }
+    .upload-area:hover,
+    .upload-area.dragover {
+        border-color: var(--primary-600);
+        background: var(--primary-50);
+    }
+    .upload-area i { font-size: 3rem; color: var(--text-tertiary); margin-bottom: 1rem; }
+    .upload-area p { color: var(--text-secondary); margin: 0.5rem 0; }
+
+    /* Webcam capture */
+    .webcam-wrapper {
+        margin-top: var(--spacing-lg);
+    }
+    #webcam-video {
+        width: 100%;
+        max-width: 500px;
+        border-radius: var(--radius-md);
+        border: 2px solid var(--border-color);
+        background: #000;
+    }
+    #webcam-canvas { display: none; }
+    .capture-preview {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: var(--spacing-sm);
+        margin-top: var(--spacing-md);
+    }
+    .capture-preview img {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        border-radius: var(--radius-md);
+        border: 2px solid var(--border-color);
+    }
+
+    /* Save actions */
+    .save-actions {
+        position: sticky;
+        bottom: 0;
+        background: var(--card-bg);
+        border-top: 2px solid var(--border-color);
+        padding: var(--spacing-lg) 0;
+        margin-top: var(--spacing-2xl);
+        display: flex;
+        gap: var(--spacing-md);
+        justify-content: flex-end;
+    }
+
+    @media (max-width: 768px) {
+        .weight-layout { grid-template-columns: 1fr; }
+        .image-gallery { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+        .save-actions { flex-direction: column; }
+        .save-actions .btn { width: 100%; justify-content: center; }
+    }
+{% endblock %}
+
+{% block content %}
+<div class="manage-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <div class="page-eyebrow">
+                <a href="{% url 'iot:goat_inventory' %}" style="color: var(--primary-600); text-decoration: none;">
+                    <i class="bi bi-arrow-left"></i> Back to Inventory
+                </a>
+            </div>
+            <h1>{{ goat.goat_id }}</h1>
+            <p class="page-subtitle">
+                <span class="status-badge status-{{ goat.status }}">{{ goat.get_status_display }}</span>
+                <span style="margin-left: 1rem; color: var(--text-secondary);">
+                    Last updated {{ goat.last_updated|date:"M d, Y H:i" }}
+                </span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Weight Monitoring: a reading is associated only with this selected goat after Save Weight. -->
+    <div class="info-section" id="weight-monitoring">
+        <div class="section-header">
+            <i class="bi bi-speedometer2"></i>
+            <h3>Weight Monitoring</h3>
+            <span class="badge bg-secondary">
+                Current:
+                {% if goat.weight_kg is not None %}{{ goat.weight_kg|floatformat:2 }} kg{% else %}Not recorded{% endif %}
+            </span>
+        </div>
+
+        <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+            Selected Goat:
+            <strong>{{ goat.goat_id }}{% if goat.name %} — {{ goat.name }}{% endif %}</strong>.
+            Live readings are never saved automatically.
+        </p>
+
+        <div class="weight-mode-switch" role="group" aria-label="Weight entry method">
+            <button type="button" class="btn btn-outline active" id="weight-auto-mode">
+                <i class="bi bi-broadcast"></i> Automatic / Load Cell
+            </button>
+            <button type="button" class="btn btn-outline" id="weight-manual-mode">
+                <i class="bi bi-pencil-square"></i> Manual Entry
+            </button>
+        </div>
+
+        <div class="weight-layout">
+            <div class="weight-panel">
+                <div id="automatic-weight-pane">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span class="scale-state" id="scale-status">Not started</span>
+                        <small id="scale-connection" class="text-muted">Press Start Weighing to connect</small>
+                    </div>
+                    <div class="weight-reading" aria-live="polite">
+                        <span id="live-weight-value">—</span> <small>kg</small>
+                    </div>
+                    <small class="text-muted" id="scale-detail">The empty platform should be tared before weighing.</small>
+                </div>
+
+                <div id="manual-weight-pane" hidden>
+                    <label for="manual-weight-input" class="form-label">Weight</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="manual-weight-input"
+                               min="0.10" max="300" step="0.01" inputmode="decimal"
+                               placeholder="Enter weight">
+                        <span class="input-group-text">kg</span>
+                    </div>
+                    <small class="text-muted">Enter a value from 0.10 to 300.00 kg.</small>
+                </div>
+
+                <div class="weight-actions">
+                    <button type="button" class="btn btn-primary" id="start-weighing-btn">
+                        <i class="bi bi-play-circle"></i> Start Weighing
+                    </button>
+                    <button type="button" class="btn btn-success" id="save-weight-btn" disabled>
+                        <i class="bi bi-check-circle"></i> Save Weight
+                    </button>
+                    <button type="button" class="btn btn-outline" id="reset-weight-btn">
+                        <i class="bi bi-arrow-counterclockwise"></i> Cancel / Reset
+                    </button>
+                </div>
+                <div class="alert weight-feedback" id="weight-feedback" role="alert"></div>
+            </div>
+
+            <div class="weight-panel weight-confirmation">
+                <h4 style="font-size: 1rem; margin-bottom: var(--spacing-md);">Confirm before saving</h4>
+                <dl>
+                    <div><dt>Goat</dt><dd>{{ goat.goat_id }}{% if goat.name %}<br><small>{{ goat.name }}</small>{% endif %}</dd></div>
+                    <div><dt>Weight</dt><dd id="confirm-weight">—</dd></div>
+                    <div><dt>Unit</dt><dd>kg</dd></div>
+                    <div><dt>Date and time</dt><dd id="confirm-time">—</dd></div>
+                    <div><dt>Source</dt><dd id="confirm-source">Load Cell</dd></div>
+                </dl>
+            </div>
+        </div>
+
+        <div class="weight-history">
+            <h4 style="font-size: 1rem; margin-bottom: var(--spacing-md);">Weight History</h4>
+            {% if weight_history %}
+            <table>
+                <thead>
+                    <tr><th>Date and time</th><th class="numeric">Weight</th><th>Source</th></tr>
+                </thead>
+                <tbody>
+                    {% for measurement in weight_history %}
+                    <tr>
+                        <td>{{ measurement.measured_at|date:"M d, Y, g:i A" }}</td>
+                        <td class="numeric"><strong>{{ measurement.weight_kg|floatformat:2 }} kg</strong></td>
+                        <td>{{ measurement.get_source_display }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted mb-0">No saved weight measurements yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Form -->
+    <form method="post" enctype="multipart/form-data" id="manage-form">
+        {% csrf_token %}
+
+        <!-- Basic Information -->
+        <div class="info-section">
+            <div class="section-header">
+                <i class="bi bi-info-circle"></i>
+                <h3>Basic Information</h3>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.goat_id.label }}</label>
+                    {{ form.goat_id }}
+                    {% if form.goat_id.errors %}
+                        <div class="text-danger">{{ form.goat_id.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.name.label }}</label>
+                    {{ form.name }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">{{ form.tag_number.label }}</label>
+                    {{ form.tag_number }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">{{ form.breed.label }}</label>
+                    {{ form.breed }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">{{ form.gender.label }}</label>
+                    {{ form.gender }}
+                    {% if form.gender.errors %}
+                        <div class="text-danger">{{ form.gender.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">{{ form.date_of_birth.label }}</label>
+                    {{ form.date_of_birth }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Current Weight</label>
+                    <input type="text" class="form-control"
+                           value="{% if goat.weight_kg is not None %}{{ goat.weight_kg|floatformat:2 }} kg{% else %}Not recorded{% endif %}"
+                           disabled>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Age</label>
+                    <input type="text" class="form-control" value="{{ goat.age_display }}" disabled>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">{{ form.color_markings.label }}</label>
+                    {{ form.color_markings }}
+                </div>
+            </div>
+        </div>
+
+        <!-- BLE Tracker -->
+        <div class="info-section">
+            <div class="section-header">
+                <i class="bi bi-broadcast-pin"></i>
+                <h3>BLE Tracker</h3>
+                {% if beacon %}
+                    {% if beacon.enabled %}
+                    <span class="badge bg-success">Tracking enabled</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Tracking disabled</span>
+                    {% endif %}
+                {% else %}
+                <span class="badge bg-secondary">Not assigned</span>
+                {% endif %}
+                {% if beacon and beacon.enabled %}
+                <a href="{% url 'iot:ble_find_goat' goat.goat_id %}"
+                   class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-search"></i> Find Goat
+                </a>
+                {% endif %}
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+                Tracker assignment is optional. Signal readings represent approximate proximity only;
+                they do not provide exact distance or direction.
+            </p>
+
+            {% include 'iot/_ble_tracker_form.html' %}
+
+            <div style="margin-top: var(--spacing-lg); padding: var(--spacing-lg); background: var(--card-bg-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <h4 style="font-size: 1rem; margin: 0;"><i class="bi bi-activity"></i> Current Tracking State</h4>
+                    {% if tracking_state %}
+                    <span class="badge {% if tracking_state.status == 'detected' %}bg-success{% elif tracking_state.status == 'possibly_lost' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                        {{ tracking_state.get_status_display }}
+                    </span>
+                    {% endif %}
+                </div>
+                {% if tracking_state %}
+                <div class="row g-3">
+                    <div class="col-6 col-lg-3"><small class="text-muted d-block">Last RSSI</small><strong>{{ tracking_state.current_rssi|default:'—' }}{% if tracking_state.current_rssi is not None %} dBm{% endif %}</strong></div>
+                    <div class="col-6 col-lg-3"><small class="text-muted d-block">Smoothed RSSI</small><strong>{{ tracking_state.smoothed_rssi|floatformat:1|default:'—' }}{% if tracking_state.smoothed_rssi is not None %} dBm{% endif %}</strong></div>
+                    <div class="col-6 col-lg-3"><small class="text-muted d-block">Proximity</small><strong>{{ tracking_state.get_proximity_display }}</strong></div>
+                    <div class="col-6 col-lg-3"><small class="text-muted d-block">Last Seen</small><strong>{% if tracking_state.last_seen %}{{ tracking_state.last_seen|timesince }} ago{% else %}Never{% endif %}</strong></div>
+                    <div class="col-12"><small class="text-muted">Receiver: {{ tracking_state.receiver.device.name }}</small></div>
+                </div>
+                {% elif beacon %}
+                <div class="text-muted"><i class="bi bi-info-circle"></i> No BLE detections have been received yet.</div>
+                {% else %}
+                <div class="text-muted"><i class="bi bi-info-circle"></i> Assign a beacon to enable BLE tracking.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Health Information -->
+        <div class="info-section">
+            <div class="section-header">
+                <i class="bi bi-heart-pulse"></i>
+                <h3>Health Information</h3>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.health_status.label }}</label>
+                    {{ form.health_status }}
+                </div>
+                <div class="col-12">
+                    <label class="form-label">{{ form.health_notes.label }}</label>
+                    {{ form.health_notes }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Vaccination Records -->
+        <div class="info-section">
+            <div class="section-header">
+                <i class="bi bi-shield-check"></i>
+                <h3>Vaccination Records</h3>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.vaccination_status.label }}</label>
+                    {{ form.vaccination_status }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.vaccine_name.label }}</label>
+                    {{ form.vaccine_name }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.vaccination_date.label }}</label>
+                    {{ form.vaccination_date }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">{{ form.next_due_date.label }}</label>
+                    {{ form.next_due_date }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Notes -->
+        <div class="info-section">
+            <div class="section-header">
+                <i class="bi bi-journal-text"></i>
+                <h3>Additional Notes</h3>
+            </div>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">{{ form.notes.label }}</label>
+                    {{ form.notes }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Gallery -->
+        <div class="info-section">
+            <div class="section-header">
+                <i class="bi bi-images"></i>
+                <h3>Image Gallery</h3>
+                <span class="badge bg-secondary">{{ image_count }} image{{ image_count|pluralize }}</span>
+            </div>
+
+            {% if images %}
+                <div class="image-gallery">
+                    {% for image in images %}
+                    <div class="gallery-item">
+                        <img src="{{ image.image.url }}" alt="Goat image">
+                        <div class="gallery-item-overlay">
+                            <button type="button" class="delete-image-btn" onclick="deleteImage({{ image.id }}, this)">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: var(--text-secondary); margin-top: var(--spacing-lg);">
+                    No images yet. Upload or capture photos below.
+                </p>
+            {% endif %}
+
+            <!-- Upload Area -->
+            <div class="upload-area" id="upload-area">
+                <i class="bi bi-cloud-arrow-up"></i>
+                <p style="font-weight: 600; font-size: 1rem;">Click or drag images here</p>
+                <p style="font-size: 0.875rem;">Upload multiple images (JPG, PNG)</p>
+                <input type="file" name="images" id="file-input" accept="image/*" multiple style="display: none;">
+            </div>
+
+            <!-- Webcam Capture -->
+            <div class="webcam-wrapper">
+                <h4 style="margin-bottom: var(--spacing-md);">
+                    <i class="bi bi-camera"></i> Capture with Webcam
+                </h4>
+                <div style="margin-bottom: var(--spacing-md);">
+                    <button type="button" class="btn btn-outline" id="start-webcam-btn">
+                        <i class="bi bi-camera-video"></i> Start Webcam
+                    </button>
+                    <button type="button" class="btn btn-primary" id="capture-btn" style="display: none;">
+                        <i class="bi bi-camera"></i> Capture Photo
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="stop-webcam-btn" style="display: none;">
+                        <i class="bi bi-x-circle"></i> Stop Webcam
+                    </button>
+                </div>
+                <video id="webcam-video" autoplay playsinline style="display: none;"></video>
+                <canvas id="webcam-canvas"></canvas>
+                <div class="capture-preview" id="capture-preview"></div>
+            </div>
+
+            <!-- Hidden field for captured photos (JSON array of data URLs) -->
+            <input type="hidden" name="captured_photos" id="captured-photos-field">
+        </div>
+
+        <!-- Save Actions -->
+        <div class="save-actions">
+            <a href="{% url 'iot:goat_inventory' %}" class="btn btn-outline">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> Save Changes
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ============================================================
+// Selected-goat weight monitoring
+// ============================================================
+const weightLiveUrl = "{% url 'iot:goat_weight_live' goat.goat_id %}";
+const weightSaveUrl = "{% url 'iot:save_goat_weight' goat.goat_id %}";
+const weightCsrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+const autoModeButton = document.getElementById('weight-auto-mode');
+const manualModeButton = document.getElementById('weight-manual-mode');
+const automaticPane = document.getElementById('automatic-weight-pane');
+const manualPane = document.getElementById('manual-weight-pane');
+const startWeighingButton = document.getElementById('start-weighing-btn');
+const saveWeightButton = document.getElementById('save-weight-btn');
+const resetWeightButton = document.getElementById('reset-weight-btn');
+const manualWeightInput = document.getElementById('manual-weight-input');
+const scaleStatus = document.getElementById('scale-status');
+const scaleConnection = document.getElementById('scale-connection');
+const scaleDetail = document.getElementById('scale-detail');
+const liveWeightValue = document.getElementById('live-weight-value');
+const confirmWeight = document.getElementById('confirm-weight');
+const confirmTime = document.getElementById('confirm-time');
+const confirmSource = document.getElementById('confirm-source');
+const weightFeedback = document.getElementById('weight-feedback');
+
+let weightMode = 'load_cell';
+let weighingStarted = false;
+let weightPollTimer = null;
+let latestScaleReading = null;
+let pendingWeightRequestId = null;
+let weightSaveInFlight = false;
+
+function createRequestId() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, character => {
+        const random = Math.random() * 16 | 0;
+        const value = character === 'x' ? random : (random & 0x3 | 0x8);
+        return value.toString(16);
+    });
+}
+
+function formatWeightTime(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+}
+
+function setScaleStatus(text, tone = '') {
+    scaleStatus.textContent = text;
+    scaleStatus.className = 'scale-state' + (tone ? ' ' + tone : '');
+}
+
+function showWeightFeedback(message, kind) {
+    weightFeedback.textContent = message;
+    weightFeedback.className = 'alert weight-feedback alert-' + kind;
+    weightFeedback.style.display = 'block';
+}
+
+function clearWeightFeedback() {
+    weightFeedback.style.display = 'none';
+    weightFeedback.textContent = '';
+}
+
+function updateWeightConfirmation(weight, measuredAt, source) {
+    confirmWeight.textContent = Number.isFinite(weight) ? weight.toFixed(2) + ' kg' : '—';
+    confirmTime.textContent = formatWeightTime(measuredAt);
+    confirmSource.textContent = source;
+}
+
+function stopWeightPolling() {
+    weighingStarted = false;
+    if (weightPollTimer) {
+        clearInterval(weightPollTimer);
+        weightPollTimer = null;
+    }
+}
+
+function renderScaleReading(data) {
+    latestScaleReading = data;
+    scaleConnection.textContent = data.connected && data.hx711_ready ? 'Scale Connected' :
+        (data.connected ? 'ESP32 connected; HX711 unavailable' : 'Scale Offline');
+
+    if (!data.connected) {
+        setScaleStatus('Scale Offline', 'danger');
+        liveWeightValue.textContent = '—';
+        scaleDetail.textContent = 'Manual Entry remains available.';
+        saveWeightButton.disabled = true;
+        updateWeightConfirmation(NaN, null, 'Load Cell');
+        return;
+    }
+
+    const weight = Number(data.weight_kg);
+    const hasWeight = Number.isFinite(weight);
+    liveWeightValue.textContent = hasWeight ? weight.toFixed(2) : '—';
+    updateWeightConfirmation(hasWeight ? weight : NaN, data.received_at, 'Load Cell');
+
+    if (!data.hx711_ready || !data.valid) {
+        setScaleStatus(data.status || 'Scale Unavailable', 'danger');
+        scaleDetail.textContent = 'Check the HX711 wiring and calibration.';
+        saveWeightButton.disabled = true;
+    } else if (!data.weight_detected) {
+        setScaleStatus('Waiting for Weight', 'warning');
+        scaleDetail.textContent = 'Ask the selected goat to stand fully on the platform.';
+        saveWeightButton.disabled = true;
+    } else if (!data.stable) {
+        setScaleStatus('Stabilizing…', 'warning');
+        scaleDetail.textContent = data.variation_kg == null ? 'Hold the goat still.' :
+            'Recent variation: ' + Number(data.variation_kg).toFixed(3) + ' kg';
+        saveWeightButton.disabled = true;
+    } else {
+        setScaleStatus('Stable Weight', 'success');
+        scaleDetail.textContent = 'Stable reading detected. Confirm the goat and press Save Weight.';
+        saveWeightButton.disabled = false;
+    }
+}
+
+async function pollScaleReading() {
+    if (!weighingStarted || weightMode !== 'load_cell') return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    try {
+        const response = await fetch(weightLiveUrl, {
+            headers: {'Accept': 'application/json'},
+            cache: 'no-store',
+            signal: controller.signal
+        });
+        if (!response.ok) throw new Error('Unable to request the live scale reading.');
+        renderScaleReading(await response.json());
+    } catch (error) {
+        renderScaleReading({connected: false, hx711_ready: false});
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function setWeightMode(mode) {
+    clearWeightFeedback();
+    pendingWeightRequestId = null;
+    weightMode = mode;
+    const manual = mode === 'manual';
+    autoModeButton.classList.toggle('active', !manual);
+    manualModeButton.classList.toggle('active', manual);
+    automaticPane.hidden = manual;
+    manualPane.hidden = !manual;
+    startWeighingButton.hidden = manual;
+    confirmSource.textContent = manual ? 'Manual' : 'Load Cell';
+    if (manual) {
+        stopWeightPolling();
+        validateManualWeight();
+        manualWeightInput.focus();
+    } else {
+        // Returning from Manual Entry never bypasses the explicit Start Weighing step.
+        saveWeightButton.disabled = !(weighingStarted && latestScaleReading && latestScaleReading.stable);
+        updateWeightConfirmation(
+            latestScaleReading && Number.isFinite(Number(latestScaleReading.weight_kg)) ?
+                Number(latestScaleReading.weight_kg) : NaN,
+            latestScaleReading ? latestScaleReading.received_at : null,
+            'Load Cell'
+        );
+    }
+}
+
+function validateManualWeight() {
+    const weight = Number(manualWeightInput.value);
+    const valid = manualWeightInput.value !== '' && Number.isFinite(weight) && weight >= 0.10 && weight <= 300;
+    manualWeightInput.classList.toggle('is-invalid', manualWeightInput.value !== '' && !valid);
+    saveWeightButton.disabled = !valid || weightSaveInFlight;
+    updateWeightConfirmation(valid ? weight : NaN, valid ? new Date().toISOString() : null, 'Manual');
+    return valid;
+}
+
+startWeighingButton.addEventListener('click', () => {
+    clearWeightFeedback();
+    pendingWeightRequestId = null;
+    weighingStarted = true;
+    setScaleStatus('Waiting for Weight', 'warning');
+    scaleConnection.textContent = 'Connecting to scale…';
+    pollScaleReading();
+    if (weightPollTimer) clearInterval(weightPollTimer);
+    weightPollTimer = setInterval(pollScaleReading, 1500);
+});
+
+autoModeButton.addEventListener('click', () => setWeightMode('load_cell'));
+manualModeButton.addEventListener('click', () => setWeightMode('manual'));
+manualWeightInput.addEventListener('input', () => {
+    pendingWeightRequestId = null;
+    validateManualWeight();
+});
+manualWeightInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') event.preventDefault();
+});
+
+resetWeightButton.addEventListener('click', () => {
+    stopWeightPolling();
+    clearWeightFeedback();
+    pendingWeightRequestId = null;
+    latestScaleReading = null;
+    manualWeightInput.value = '';
+    manualWeightInput.classList.remove('is-invalid');
+    liveWeightValue.textContent = '—';
+    setScaleStatus('Not started');
+    scaleConnection.textContent = 'Press Start Weighing to connect';
+    scaleDetail.textContent = 'The empty platform should be tared before weighing.';
+    setWeightMode('load_cell');
+    saveWeightButton.disabled = true;
+});
+
+saveWeightButton.addEventListener('click', async () => {
+    if (weightSaveInFlight) return;
+    if (weightMode === 'manual' && !validateManualWeight()) {
+        showWeightFeedback('Enter a valid weight between 0.10 and 300.00 kg.', 'danger');
+        return;
+    }
+    if (weightMode === 'load_cell' && !(latestScaleReading && latestScaleReading.stable)) {
+        showWeightFeedback('Wait for a stable load-cell reading before saving.', 'warning');
+        return;
+    }
+
+    weightSaveInFlight = true;
+    saveWeightButton.disabled = true;
+    pendingWeightRequestId = pendingWeightRequestId || createRequestId();
+    const payload = {
+        source: weightMode,
+        request_id: pendingWeightRequestId
+    };
+    if (weightMode === 'manual') payload.weight_kg = manualWeightInput.value;
+
+    try {
+        const response = await fetch(weightSaveUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRFToken': weightCsrfToken
+            },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || 'Weight could not be saved.');
+        showWeightFeedback(
+            (result.duplicate ? 'This weight was already saved: ' : 'Weight saved: ') +
+            result.measurement.weight_kg + ' kg for ' + result.measurement.goat_id + '.',
+            'success'
+        );
+        stopWeightPolling();
+        setTimeout(() => window.location.reload(), 700);
+    } catch (error) {
+        showWeightFeedback(error.message || 'Weight could not be saved. Manual Entry remains available.', 'danger');
+        weightSaveInFlight = false;
+        saveWeightButton.disabled = false;
+    }
+});
+
+// ============================================================
+// File Upload with Drag & Drop
+// ============================================================
+const uploadArea = document.getElementById('upload-area');
+const fileInput = document.getElementById('file-input');
+
+uploadArea.addEventListener('click', () => fileInput.click());
+
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover');
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        updateUploadText();
+    }
+});
+
+fileInput.addEventListener('change', updateUploadText);
+
+function updateUploadText() {
+    const count = fileInput.files.length;
+    if (count > 0) {
+        uploadArea.querySelector('p').textContent = `${count} image${count > 1 ? 's' : ''} selected`;
+    }
+}
+
+// ============================================================
+// Webcam Capture
+// ============================================================
+const video = document.getElementById('webcam-video');
+const canvas = document.getElementById('webcam-canvas');
+const capturePreview = document.getElementById('capture-preview');
+const capturedField = document.getElementById('captured-photos-field');
+const startBtn = document.getElementById('start-webcam-btn');
+const captureBtn = document.getElementById('capture-btn');
+const stopBtn = document.getElementById('stop-webcam-btn');
+
+let stream = null;
+const capturedPhotos = [];
+
+startBtn.addEventListener('click', async () => {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        startBtn.style.display = 'none';
+        captureBtn.style.display = 'inline-flex';
+        stopBtn.style.display = 'inline-flex';
+    } catch (err) {
+        alert('Failed to access webcam: ' + err.message);
+    }
+});
+
+captureBtn.addEventListener('click', () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    capturedPhotos.push(dataUrl);
+    updateCapturePreview();
+    updateCapturedField();
+});
+
+stopBtn.addEventListener('click', () => {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    video.style.display = 'none';
+    startBtn.style.display = 'inline-flex';
+    captureBtn.style.display = 'none';
+    stopBtn.style.display = 'none';
+});
+
+function updateCapturePreview() {
+    capturePreview.innerHTML = capturedPhotos.map((dataUrl, idx) =>
+        `<div style="position: relative;">
+            <img src="${dataUrl}" alt="Captured ${idx + 1}">
+            <button type="button" onclick="removeCaptured(${idx})"
+                    style="position: absolute; top: 4px; right: 4px; background: var(--danger); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>`
+    ).join('');
+}
+
+function updateCapturedField() {
+    capturedField.value = JSON.stringify(capturedPhotos);
+}
+
+function removeCaptured(idx) {
+    capturedPhotos.splice(idx, 1);
+    updateCapturePreview();
+    updateCapturedField();
+}
+
+// ============================================================
+// Delete Image (AJAX)
+// ============================================================
+function deleteImage(imageId, btn) {
+    if (!confirm('Delete this image?')) return;
+
+    const url = "{% url 'iot:delete_goat_image' goat.goat_id 0 %}".replace('/0/', `/${imageId}/`);
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            btn.closest('.gallery-item').remove();
+            const countBadge = document.querySelector('.section-header .badge');
+            const currentCount = parseInt(countBadge.textContent);
+            const newCount = currentCount - 1;
+            countBadge.textContent = `${newCount} image${newCount !== 1 ? 's' : ''}`;
+        } else {
+            alert('Failed to delete image.');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Error deleting image.');
+    });
+}
+
+// Stop webcam if user leaves page
+window.addEventListener('beforeunload', () => {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,261 @@
+ESP32 MQTT KaMoTech - Wiring Diagram
+============================================
+
+ESP32 PINOUT (30-pin DevKit)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LEFT SIDE (from top):
+┌─────────────────┐
+│ 3V3    ●    GND │ ← Power Rails
+│ EN     ●    IO23│
+│ IO36   ●    IO22│
+│ IO39   ●    IO1 │ (TX)
+│ IO34   ●    IO3 │ (RX)
+│ IO35   ●    IO21│
+│ IO32   ●    GND │
+│ IO33   ●    IO19│
+│ IO25   ●    IO18│ ← Ultrasonic Echo
+│ IO26   ●    IO5 │ ← Ultrasonic Trigger
+│ IO27   ●    IO17│
+│ IO14   ●    IO16│
+│ IO12   ●    IO4 │
+│ GND    ●    IO0 │
+│ IO13   ●    IO2 │ ← Built-in LED
+│ IO9    ●    IO15│
+│ IO10   ●    GND │
+│ IO11   ●    3V3 │
+└─────────────────┘
+
+COMPONENT CONNECTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. SERVO MOTOR (Feeder Dispenser)
+   ┌──────────────┐
+   │ Servo Motor  │
+   ├──────────────┤
+   │ Brown/Black  │ ──→ GND
+   │ Red          │ ──→ 5V (External power recommended)
+   │ Orange/White │ ──→ GPIO 25 (PWM Signal)
+   └──────────────┘
+   
+   ⚠️ NOTE: For multiple servos or high-torque servos, use external 
+   5V power supply (NOT from ESP32) with common ground.
+
+2. ULTRASONIC SENSOR (HC-SR04 or similar)
+   ┌──────────────┐
+   │  Ultrasonic  │
+   ├──────────────┤
+   │ VCC          │ ──→ 5V
+   │ TRIG         │ ──→ GPIO 5
+   │ ECHO         │ ──→ GPIO 18 (⚠️ Use voltage divider!)
+   │ GND          │ ──→ GND
+   └──────────────┘
+   
+   ⚠️ IMPORTANT: HC-SR04 ECHO pin outputs 5V but ESP32 accepts max 3.3V!
+   
+   ECHO Voltage Divider:
+   
+   HC-SR04 ECHO ──┬── 1kΩ ──┬── GPIO 18
+                  │         │
+                  └─ 2kΩ ──┴── GND
+   
+   This creates 3.3V from 5V: (5V × 2kΩ)/(1kΩ + 2kΩ) = 3.33V
+
+3. DOOR ACTUATOR (Linear Actuator with Relays)
+   
+   Option A: 2 Relays (Recommended for safety)
+   ┌──────────────────────┐
+   │  Relay Module (IN1)  │
+   ├──────────────────────┤
+   │ VCC                  │ ──→ 5V
+   │ GND                  │ ──→ GND
+   │ IN1 (Door Open)      │ ──→ GPIO 26
+   │ COM                  │ ──→ Linear Actuator Wire 1
+   │ NO                   │ ──→ 12V+ (from power supply)
+   └──────────────────────┘
+   
+   ┌──────────────────────┐
+   │  Relay Module (IN2)  │
+   ├──────────────────────┤
+   │ VCC                  │ ──→ 5V
+   │ GND                  │ ──→ GND
+   │ IN2 (Door Close)     │ ──→ GPIO 27
+   │ COM                  │ ──→ Linear Actuator Wire 2
+   │ NO                   │ ──→ 12V- (from power supply)
+   └──────────────────────┘
+   
+   Linear Actuator Connection:
+   Wire 1 ──→ Relay 1 COM
+   Wire 2 ──→ Relay 2 COM
+   
+   When GPIO 26 HIGH: Relay 1 closes → Current flows one direction → Door opens
+   When GPIO 27 HIGH: Relay 2 closes → Current reverses → Door closes
+   
+   Option B: H-Bridge Module (L298N or similar)
+   ┌──────────────────────┐
+   │    L298N H-Bridge    │
+   ├──────────────────────┤
+   │ +12V                 │ ──→ 12V+ (from power supply)
+   │ GND                  │ ──→ GND (common ground with ESP32)
+   │ +5V                  │ ──→ (Leave disconnected if using ESP32's 5V)
+   │ IN1                  │ ──→ GPIO 26
+   │ IN2                  │ ──→ GPIO 27
+   │ OUT1                 │ ──→ Linear Actuator Wire 1
+   │ OUT2                 │ ──→ Linear Actuator Wire 2
+   └──────────────────────┘
+
+4. LIGHT CONTROL (Relay)
+   ┌──────────────────────┐
+   │  Relay Module        │
+   ├──────────────────────┤
+   │ VCC                  │ ──→ 5V
+   │ GND                  │ ──→ GND
+   │ IN                   │ ──→ GPIO 13
+   │ COM                  │ ──→ AC/DC Light +
+   │ NO                   │ ──→ Power Supply +
+   └──────────────────────┘
+   
+   For AC mains (110V/220V):
+   ⚠️ WARNING: HIGH VOLTAGE! Use proper isolation!
+   
+   Power Line ──→ Relay NO
+   Relay COM ──→ Light/Bulb
+   Light/Bulb ──→ Neutral Line
+
+5. RAIN SENSOR (Analog)
+   ┌──────────────────────┐
+   │   Rain Sensor        │
+   ├──────────────────────┤
+   │ VCC                  │ ──→ 3.3V
+   │ GND                  │ ──→ GND
+   │ AO (Analog Out)      │ ──→ GPIO 32 (ADC1_CH4)
+   └──────────────────────┘
+   
+   ⚠️ NOTE: Use 3.3V, not 5V! ESP32 ADC accepts 0-3.3V max.
+
+6. POWER SUPPLY RECOMMENDATIONS
+   
+   ┌────────────────────────────────────┐
+   │  Power Distribution                │
+   ├────────────────────────────────────┤
+   │                                    │
+   │  12V 2A Power Supply (for actuator)│
+   │  ├─→ Linear Actuator (12V)        │
+   │  └─→ Buck Converter                │
+   │       ├─→ 5V (for relays, servo)  │
+   │       └─→ 3.3V (for ESP32)        │
+   │                                    │
+   │  OR use separate supplies:         │
+   │  - 12V for actuator                │
+   │  - 5V USB for ESP32 + peripherals  │
+   └────────────────────────────────────┘
+   
+   Current Requirements:
+   - ESP32: ~200mA (peak WiFi usage)
+   - Servo: 100-500mA (depending on load)
+   - Relays: 15-20mA each
+   - Linear Actuator: 500-2000mA (check specs)
+   
+   ⚠️ Total: Use power supply rated 20-30% above calculated needs
+
+COMPLETE SYSTEM DIAGRAM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+                    ┌───────────────────┐
+                    │   12V Power Supply│
+                    └─────────┬─────────┘
+                              │
+                ┌─────────────┴─────────────┐
+                │                           │
+                ▼                           ▼
+        ┌───────────────┐          ┌──────────────┐
+        │ Buck Converter│          │   Linear     │
+        │  12V → 5V     │          │   Actuator   │
+        └───────┬───────┘          │   (Door)     │
+                │                   └──────▲───────┘
+                ├─────┐                    │
+                │     │              ┌─────┴──────┐
+                ▼     ▼              │  H-Bridge  │
+          ┌─────┐ ┌────────┐         │  or Relays │
+          │Servo│ │ Relays │         └─────▲──────┘
+          └──▲──┘ └───▲────┘               │
+             │        │    ┌───────────────┼────────────┐
+             │        │    │               │            │
+          ┌──┴────────┴────┴───────────────┴────────┐   │
+          │            ESP32-WROOM-32                │   │
+          │                                          │   │
+          │  GPIO 25 ──→ Servo Signal               │   │
+          │  GPIO 13 ──→ Light Relay                │   │
+          │  GPIO 26 ──→ Door Open                  ├───┘
+          │  GPIO 27 ──→ Door Close                 │
+          │  GPIO 5  ──→ Ultrasonic Trigger         ├───┐
+          │  GPIO 18 ←─  Ultrasonic Echo            │   │
+          │  GPIO 32 ←─  Rain Sensor                │   │
+          │  GPIO 2  ──→ Status LED (built-in)      │   │
+          └──────────────────────────────────────────┘   │
+                          │    │                          │
+                          ▼    ▼                          ▼
+                   ┌──────────┐  ┌─────────────┐   ┌──────────┐
+                   │  WiFi    │  │ USB (for    │   │ HC-SR04  │
+                   │  Router  │  │ programming)│   │Ultrasonic│
+                   └──────────┘  └─────────────┘   └──────────┘
+
+SAFETY CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+□ Use voltage divider for ultrasonic ECHO pin (5V → 3.3V)
+□ Common ground between ESP32 and all peripherals
+□ Separate power supply for high-current devices (actuator, servo)
+□ Add flyback diodes across relay coils to prevent back-EMF
+□ Proper wire gauge for current requirements (at least 20-22 AWG)
+□ Secure all connections with solder or screw terminals
+□ Use heat shrink tubing for exposed connections
+□ Keep high-voltage AC wiring separate from low-voltage DC
+□ Test each component individually before connecting all together
+□ Add fuse protection on power supply lines
+
+TESTING SEQUENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Test ESP32 alone (upload blink sketch)
+2. Test WiFi connection
+3. Test MQTT connection (without actuators)
+4. Test ultrasonic sensor (read serial output)
+5. Test servo motor with low torque (no load)
+6. Test individual relays (LED on/off)
+7. Test door actuator with manual switches
+8. Test complete system with MQTT commands
+9. Test safety features (rain detection, timeouts)
+10. Perform stress test (multiple rapid commands)
+
+TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ESP32 won't boot:
+- Check power supply voltage (needs 3.3V or 5V on VIN)
+- Remove all connections except USB
+- Hold BOOT button while connecting USB
+
+Ultrasonic readings always 0:
+- Check voltage divider resistor values
+- Verify ECHO pin doesn't exceed 3.3V
+- Try different GPIO pins
+
+Servo jitters or doesn't move:
+- Use external 5V power supply
+- Check servo wire connections
+- Reduce PWM frequency if needed
+
+Relays don't click:
+- Verify relay module needs 5V, not 3.3V
+- Check GPIO output signal with LED test
+- Ensure relay module has pull-down resistors
+
+Door actuator runs continuously:
+- Add limit switches to detect fully open/closed
+- Implement timeout failsafe (already in code)
+- Check H-bridge wiring for shorts
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+For more help, check the Serial Monitor at 115200 baud!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

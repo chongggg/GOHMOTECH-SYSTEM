@@ -1,0 +1,259 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}{{ goat.name }} - Goat Details{% endblock %}
+
+{% block content %}
+    <!-- Hero Banner -->
+    <div class="hero-banner">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <nav aria-label="breadcrumb" style="margin-bottom: 1rem;">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="{% url 'iot:goats_list' %}" style="color: rgba(255,255,255,0.8);">Goats</a></li>
+                        <li class="breadcrumb-item active" style="color: white;">{{ goat.name }}</li>
+                    </ol>
+                </nav>
+                <h1>
+                    <i class="bi bi-circle-fill"></i>
+                    {{ goat.name }}
+                </h1>
+                <p>Goat ID: <code style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 4px;">{{ goat.goat_id }}</code></p>
+            </div>
+            <div>
+                <a href="/admin/iot/goat/{{ goat.id }}/change/" class="btn btn-light">
+                    <i class="bi bi-pencil"></i> Edit Details
+                </a>
+            </div>
+        </div>
+    </div>
+
+<div style="padding: 0 30px 30px;">
+
+    <div class="row g-4">
+        <!-- Left Column: Basic Information -->
+        <div class="col-lg-4">
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h5>
+                        <i class="bi bi-info-circle text-primary"></i>
+                        Basic Information
+                    </h5>
+                </div>
+                <div class="card-body-custom">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Name</span>
+                            <span class="info-value"><strong>{{ goat.name }}</strong></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Breed</span>
+                            <span class="info-value">{{ goat.breed }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Gender</span>
+                            <span class="info-value">
+                                {% if goat.gender == 'male' %}
+                                    <i class="bi bi-gender-male text-primary"></i> Male
+                                {% elif goat.gender == 'female' %}
+                                    <i class="bi bi-gender-female" style="color: #ec4899;"></i> Female
+                                {% else %}
+                                    Unknown
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Age</span>
+                            <span class="info-value">{{ goat.age_display }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Weight</span>
+                            <span class="info-value">{{ goat.weight_kg|default:"Not recorded" }} kg</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Health Status</span>
+                            <span class="info-value">
+                                {% if goat.health_status == 'healthy' %}
+                                    <span class="badge bg-success">Healthy</span>
+                                {% elif goat.health_status == 'sick' %}
+                                    <span class="badge bg-danger">Sick</span>
+                                {% elif goat.health_status == 'monitoring' %}
+                                    <span class="badge bg-warning">Monitoring</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ goat.health_status }}</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Added</span>
+                            <span class="info-value">{{ goat.created_at|date:"M d, Y" }}</span>
+                        </div>
+                    </div>
+                    
+                    {% if goat.notes %}
+                    <div class="mt-4" style="padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+                        <h6 style="font-size: 0.875rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem;">Notes</h6>
+                        <p style="color: #475569; margin: 0;">{{ goat.notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Images and Behavior -->
+        <div class="col-lg-8">
+            <!-- Images Section -->
+            <div class="content-card mb-4">
+                <div class="card-header-custom">
+                    <h5>
+                        <i class="bi bi-images text-success"></i>
+                        Images ({{ images|length }})
+                    </h5>
+                </div>
+                <div class="card-body-custom">
+                    {% if images %}
+                        <div class="row g-3">
+                            {% for image in images %}
+                            <div class="col-md-4 col-sm-6">
+                                <div class="image-card">
+                                    <img src="{{ image.image.url }}" class="image-thumbnail" alt="{{ goat.name }}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
+                                    <div style="padding: 0.75rem 0; display: flex; justify-content: space-between; align-items: center;">
+                                        <small class="text-muted">{{ image.uploaded_at|date:"M d, Y" }}</small>
+                                        <small class="badge bg-info">{{ image.image_type }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-images" style="font-size: 3rem; color: #cbd5e1;"></i>
+                            <p class="text-muted mt-2 mb-0">No images uploaded yet</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Behavior Statistics -->
+            <div class="content-card mb-4">
+                <div class="card-header-custom">
+                    <h5>
+                        <i class="bi bi-bar-chart text-warning"></i>
+                        Behavior Statistics
+                    </h5>
+                </div>
+                <div class="card-body-custom">
+                    {% if behavior_stats %}
+                        <div class="row g-3">
+                            {% for stat in behavior_stats %}
+                            <div class="col-md-3 col-sm-6">
+                                <div class="stat-card text-center">
+                                    <div class="stat-value">{{ stat.count }}</div>
+                                    <div class="stat-label">{{ stat.behavior_type|title }}</div>
+                                    <small class="text-muted">{{ stat.avg_confidence|floatformat:1 }}% confidence</small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-bar-chart" style="font-size: 3rem; color: #cbd5e1;"></i>
+                            <p class="text-muted mt-2 mb-0">No behavior data recorded yet</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Behavior Logs -->
+            <div class="content-card">
+                <div class="card-header-custom">
+                    <h5>
+                        <i class="bi bi-clock-history text-info"></i>
+                        Recent Behavior Logs
+                    </h5>
+                </div>
+                <div class="card-body-custom">
+                    {% if behaviors %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Behavior</th>
+                                        <th>Confidence</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for behavior in behaviors %}
+                                    <tr>
+                                        <td>{{ behavior.timestamp|date:"M d, Y H:i" }}</td>
+                                        <td>
+                                            <span class="badge bg-primary">{{ behavior.behavior_type|title }}</span>
+                                        </td>
+                                        <td>{{ behavior.confidence_score|floatformat:1 }}%</td>
+                                        <td>{{ behavior.notes|default:"—" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-clock-history" style="font-size: 3rem; color: #cbd5e1;"></i>
+                            <p class="text-muted mt-2 mb-0">No behavior logs recorded yet</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.info-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.info-value {
+    font-size: 0.9375rem;
+    color: #1e293b;
+    text-align: right;
+}
+
+.breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0;
+    margin-bottom: 0;
+    list-style: none;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: "/";
+    padding: 0 8px;
+    color: rgba(255,255,255,0.6);
+}
+</style>
+{% endblock %}

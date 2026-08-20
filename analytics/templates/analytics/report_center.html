@@ -1,0 +1,124 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Report Center - GoHMoTech{% endblock %}
+{% block header_title %}Report Center{% endblock %}
+
+{% block extra_css %}
+    /* ============================================================
+       Report Center — page-scoped styles (all under .rc-page)
+       Reuses global design tokens; adds no global rules.
+       ============================================================ */
+    .rc-page { width: 100%; }
+
+    .rc-section-title {
+        font-family: var(--font-heading, inherit);
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: var(--spacing-xl) 0 var(--spacing-md);
+    }
+    .rc-section-title .rc-count {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-tertiary);
+        background: var(--card-bg-subtle);
+        border-radius: var(--radius-full);
+        padding: 0.15rem 0.6rem;
+    }
+
+    .rc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: var(--spacing-lg);
+    }
+    .rc-card {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-lg);
+        box-shadow: var(--shadow-sm);
+        text-decoration: none;
+        color: inherit;
+        transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    }
+    .rc-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--primary-500);
+    }
+    .rc-card-top { display: flex; align-items: center; gap: var(--spacing-md); }
+    .rc-card-icon {
+        width: 52px; height: 52px;
+        border-radius: var(--radius-md);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; flex-shrink: 0;
+    }
+    .rc-card-icon.blue   { background: var(--info-bg);    color: var(--info-text); }
+    .rc-card-icon.green  { background: var(--success-bg); color: var(--success); }
+    .rc-card-icon.yellow { background: var(--warning-bg); color: var(--warning); }
+    .rc-card-icon.purple { background: rgba(139,92,246,0.14); color: #8b5cf6; }
+    .rc-card-icon.red    { background: var(--danger-bg);  color: var(--danger); }
+    .rc-card-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+    .rc-card-desc { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.45; }
+    .rc-card-cta {
+        margin-top: auto;
+        font-size: 0.85rem; font-weight: 600; color: var(--primary-600, var(--primary-500));
+        display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+{% endblock %}
+
+{% block content %}
+<div class="rc-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <div class="page-eyebrow">Reports</div>
+            <h1>Report Center</h1>
+            <p class="page-subtitle">Generate livestock, marketplace, automation and environment reports — view, export and print.</p>
+        </div>
+    </div>
+
+    <!-- Summary (last 7 days for activity counts; herd counts are current) -->
+    <div class="stat-grid" style="margin-bottom: var(--spacing-md);">
+        {% for card in summary %}
+        <div class="stat-card">
+            <div class="stat-icon {{ card.color }}"><i class="bi {{ card.icon }}"></i></div>
+            <p class="stat-label">{{ card.label }}</p>
+            <p class="stat-value">{{ card.value }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="page-subtitle" style="margin-bottom: var(--spacing-lg); font-size: 0.8rem;">
+        <i class="bi bi-info-circle"></i>
+        Activity counts (feeding, door, lighting and marketplace sales) cover the last 7 days. Herd counts are current.
+    </p>
+
+    <!-- Report picker, grouped by category -->
+    {% for category, cards in categories.items %}
+    <div class="rc-section-title">
+        {{ category }} <span class="rc-count">{{ cards|length }}</span>
+    </div>
+    <div class="rc-grid">
+        {% for card in cards %}
+        <a href="{{ card.url }}" class="rc-card">
+            <div class="rc-card-top">
+                <div class="rc-card-icon {{ card.color }}"><i class="bi {{ card.icon }}"></i></div>
+                <div class="rc-card-title">{{ card.title }}</div>
+            </div>
+            <div class="rc-card-desc">{{ card.description }}</div>
+            <span class="rc-card-cta">Open report <i class="bi bi-arrow-right"></i></span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

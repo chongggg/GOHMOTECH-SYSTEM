@@ -1,0 +1,1765 @@
+{% extends 'base_modern.html' %}
+
+{% block title %}Dashboard · GoHMoTech{% endblock %}
+{% block header_title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Ensure weather numbers remain high-contrast in both themes */
+    .weather-value { color: var(--text-primary) !important; }
+    .weather-condition { color: var(--text-secondary) !important; }
+
+    /* Dashboard section spacing (uses design tokens only) */
+    .dash-section { padding: 0 30px var(--spacing-lg); }
+    .dash-section > .stat-grid { margin-bottom: 0; }
+    .section-title {
+        display: flex; align-items: center; gap: var(--spacing-sm);
+        font-family: var(--font-display); font-size: 1.05rem; font-weight: 600;
+        color: var(--text-primary); margin: 0 30px var(--spacing-sm);
+    }
+    .section-title .bi { color: var(--primary-600); }
+    .section-title .section-action {
+        margin-left: auto; color: var(--primary-600);
+        font-family: var(--font-body); font-size: 0.78rem;
+        font-weight: 600; text-decoration: none;
+    }
+    .section-title .section-action:hover { color: var(--primary-700); }
+    .ble-summary-state {
+        display: inline-flex; align-items: center; gap: 0.38rem;
+        margin-left: 0.35rem; color: var(--text-tertiary);
+        font-family: var(--font-body); font-size: 0.72rem; font-weight: 500;
+    }
+    .ble-summary-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--text-tertiary);
+    }
+    .ble-summary-state.online .ble-summary-dot { background: var(--success); }
+    .ble-summary-state.offline .ble-summary-dot { background: var(--danger); }
+
+    /* Compact status list (System status / Automation summary) */
+    .status-list { display: flex; flex-direction: column; gap: var(--spacing-xs); }
+    .status-line {
+        display: flex; align-items: center; gap: var(--spacing-sm);
+        padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--border-color);
+    }
+    .status-line:last-child { border-bottom: none; }
+    .status-line .sl-icon {
+        width: 2.25rem; height: 2.25rem; border-radius: var(--radius-md);
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--card-bg-subtle); color: var(--text-secondary);
+        border: 1px solid var(--border-color); flex-shrink: 0; font-size: 1rem;
+    }
+    .status-line .sl-body { flex: 1 1 auto; min-width: 0; }
+    .status-line .sl-title { font-weight: 600; color: var(--text-primary); font-size: 0.9rem; }
+    .status-line .sl-meta { font-size: 0.78rem; color: var(--text-tertiary); }
+    .status-line .sl-state { font-size: 0.82rem; font-weight: 600; text-align: right; }
+
+    /* Recent activity feed */
+    .activity-feed { display: flex; flex-direction: column; }
+    .activity-item {
+        display: flex; gap: var(--spacing-sm); align-items: flex-start;
+        padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--border-color);
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-item .act-icon {
+        width: 2rem; height: 2rem; border-radius: var(--radius-full);
+        display: inline-flex; align-items: center; justify-content: center;
+        flex-shrink: 0; font-size: 0.85rem;
+    }
+    .act-icon.success { background: var(--success-bg); color: var(--success); }
+    .act-icon.warning { background: var(--warning-bg); color: var(--warning); }
+    .act-icon.danger  { background: var(--danger-bg);  color: var(--danger); }
+    .act-icon.info    { background: var(--info-bg);    color: var(--primary-700); }
+    .act-icon.muted   { background: var(--card-bg-subtle); color: var(--text-tertiary); border: 1px solid var(--border-color); }
+    .activity-item .act-body { flex: 1 1 auto; min-width: 0; }
+    .activity-item .act-title { font-size: 0.88rem; color: var(--text-primary); font-weight: 500; }
+    .activity-item .act-meta { font-size: 0.75rem; color: var(--text-tertiary); }
+</style>
+{% endblock %}
+
+{% block content %}
+    <form id="csrf-token-form" style="display: none;">
+        {% csrf_token %}
+    </form>
+    <!-- Hero Banner (honest, derived status — no hardcoded "All Systems Active") -->
+    <div class="hero-banner">
+        <h1>
+            <i class="bi bi-house-heart-fill"></i>
+            GoHMoTech
+        </h1>
+        <p>Smart Goat House — real-time monitoring &amp; livestock management</p>
+        <div>
+            {# Controller status derived from recent sensor activity (no fake heartbeat) #}
+            {% if not controller_configured %}
+                <span class="status-badge">
+                    <i class="bi bi-cpu"></i>
+                    Controller not registered
+                </span>
+            {% elif controller_online %}
+                <span class="status-badge">
+                    <i class="bi bi-check-circle-fill"></i>
+                    Controller online
+                </span>
+            {% else %}
+                <span class="status-badge">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    Controller offline{% if controller_last_seen %} · last seen {{ controller_last_seen|timesince }} ago{% endif %}
+                </span>
+            {% endif %}
+
+            {# Camera status from IPCamera.status #}
+            {% if camera_status.configured %}
+                <span class="status-badge">
+                    <i class="bi bi-camera-video{% if not camera_status.online %}-off{% endif %}-fill"></i>
+                    Camera {{ camera_status.online|yesno:"online,offline" }}
+                </span>
+            {% else %}
+                <span class="status-badge">
+                    <i class="bi bi-camera-video-off-fill"></i>
+                    No camera configured
+                </span>
+            {% endif %}
+
+            <span class="status-badge">
+                <i class="bi bi-cloud-sun-fill"></i>
+                {% if weather_info.available %}
+                    {{ weather_info.summary }} {{ weather_info.temperature_c|default:'--' }}&deg;C
+                {% else %}
+                    Weather unavailable
+                {% endif %}
+            </span>
+            <span class="status-badge">
+                <i class="bi bi-clock-fill"></i>
+                Updated <span id="last-update">just now</span>
+            </span>
+        </div>
+    </div>
+
+    <!-- ===== Livestock (honest inventory aggregates) ===== -->
+    <div class="section-title"><i class="bi bi-heart-pulse-fill"></i> Livestock</div>
+    <div class="dash-section">
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon green me-2"><i class="bi bi-columns-gap"></i></div>
+                    <div class="stat-label">Total Goats</div>
+                </div>
+                <div class="stat-value">{{ total_goats }}</div>
+                <a href="/iot/inventory/" class="stat-link">View inventory <i class="bi bi-arrow-right"></i></a>
+            </div>
+
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon green me-2"><i class="bi bi-check-circle-fill"></i></div>
+                    <div class="stat-label">Healthy</div>
+                </div>
+                <div class="stat-value">{{ healthy_goats }}</div>
+                <div class="stat-change text-muted">
+                    {% if total_goats %}{{ healthy_goats }} of {{ total_goats }} active{% else %}No goats registered{% endif %}
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon yellow me-2"><i class="bi bi-clipboard2-pulse-fill"></i></div>
+                    <div class="stat-label">Needs Attention</div>
+                </div>
+                <div class="stat-value">{{ monitoring_goats|add:sick_goats|add:quarantine_goats }}</div>
+                <div class="stat-change text-muted">
+                    {{ monitoring_goats }} monitoring · {{ sick_goats }} sick · {{ quarantine_goats }} quarantine
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon {% if vaccinations_due %}red{% else %}green{% endif %} me-2"><i class="bi bi-calendar2-check-fill"></i></div>
+                    <div class="stat-label">Vaccinations Due</div>
+                </div>
+                <div class="stat-value">{{ vaccinations_due }}</div>
+                <div class="stat-change text-muted">Overdue or within 30 days</div>
+            </div>
+
+            {% if missing_goats %}
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon red me-2"><i class="bi bi-question-octagon-fill"></i></div>
+                    <div class="stat-label">Missing</div>
+                </div>
+                <div class="stat-value">{{ missing_goats }}</div>
+                <div class="stat-change negative">Marked missing</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ===== BLE Goat Tracking (same status rules as the live radar) ===== -->
+    <div class="section-title" data-ble-summary
+         data-api-url="{% url 'iot:ble_tracking_snapshot' %}">
+        <i class="bi bi-broadcast-pin"></i>
+        BLE Goat Tracking
+        <span class="ble-summary-state" id="bleReceiverState">
+            <span class="ble-summary-dot"></span>
+            <span id="bleReceiverText">
+                {% if ble_receivers %}
+                    Receiver {{ ble_receivers.0.status }}
+                {% else %}
+                    No receiver configured
+                {% endif %}
+            </span>
+        </span>
+        <a href="{% url 'iot:ble_tracking_dashboard' %}" class="section-action">
+            Open radar <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+    <div class="dash-section">
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon blue me-2"><i class="bi bi-tags-fill"></i></div>
+                    <div class="stat-label">Tracked Goats</div>
+                </div>
+                <div class="stat-value" id="bleTracked">{{ ble_tracking_summary.tracked_goats }}</div>
+                <a href="{% url 'iot:ble_tracking_dashboard' %}" class="stat-link">
+                    View tracking <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon green me-2"><i class="bi bi-wifi"></i></div>
+                    <div class="stat-label">Currently Detected</div>
+                </div>
+                <div class="stat-value" id="bleDetected">{{ ble_tracking_summary.detected }}</div>
+                <div class="stat-change text-muted">Recently seen by BLE</div>
+            </div>
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon red me-2"><i class="bi bi-wifi-off"></i></div>
+                    <div class="stat-label">Out of Range</div>
+                </div>
+                <div class="stat-value" id="bleOutOfRange">{{ ble_tracking_summary.out_of_range }}</div>
+                <div class="stat-change text-muted">Past the configured timeout</div>
+            </div>
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon purple me-2"><i class="bi bi-reception-4"></i></div>
+                    <div class="stat-label">Very Near</div>
+                </div>
+                <div class="stat-value" id="bleVeryNear">{{ ble_tracking_summary.very_near }}</div>
+                <div class="stat-change text-muted">Strongest signal range</div>
+            </div>
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon green me-2"><i class="bi bi-reception-3"></i></div>
+                    <div class="stat-label">Near</div>
+                </div>
+                <div class="stat-value" id="bleNear">{{ ble_tracking_summary.near }}</div>
+                <div class="stat-change text-muted">Good signal range</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Environment & Feed (live sensor / feeder readings) ===== -->
+    <div class="section-title"><i class="bi bi-thermometer-half"></i> Environment &amp; Feed</div>
+    <div class="dash-section">
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon red me-2"><i class="bi bi-thermometer-sun"></i></div>
+                    <div class="stat-label">Temperature</div>
+                </div>
+                <div class="stat-value">
+                    {% if avg_temperature is not None %}{{ avg_temperature }}<small style="font-size: 14px;">&deg;C</small>{% else %}--{% endif %}
+                </div>
+                <div class="stat-change text-muted">Inside house</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon blue me-2"><i class="bi bi-droplet-fill"></i></div>
+                    <div class="stat-label">Humidity</div>
+                </div>
+                <div class="stat-value">
+                    {% if avg_humidity is not None %}{{ avg_humidity }}<small style="font-size: 14px;">%</small>{% else %}--{% endif %}
+                </div>
+                <div class="stat-change text-muted">Inside house</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon yellow me-2"><i class="bi bi-box-seam-fill"></i></div>
+                    <div class="stat-label">Feed Level</div>
+                </div>
+                <div class="stat-value">
+                    {% if feed_level_percent is not None %}{{ feed_level_percent }}<small style="font-size: 14px;">%</small>{% else %}--{% endif %}
+                </div>
+                <div class="stat-change {% if feed_level_percent and feed_level_percent < 20 %}negative{% else %}text-muted{% endif %}">
+                    {% if feed_capacity_grams %}{{ feed_total_grams|floatformat:0 }}g remaining{% else %}No data{% endif %}
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon green me-2"><i class="bi bi-camera-fill"></i></div>
+                    <div class="stat-label">Last Camera Count</div>
+                </div>
+                <div class="stat-value">
+                    {% if latest_goat_count is not None %}{{ latest_goat_count }}{% else %}--{% endif %}
+                </div>
+                <div class="stat-change text-muted">
+                    {% if latest_detection_time %}Seen by camera at {{ latest_detection_time|date:"H:i" }}{% else %}No detections yet{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== System status + Automation summary ===== -->
+    <div class="dash-section">
+        <div class="row g-4">
+            <!-- System status (derived, real) -->
+            <div class="col-lg-6">
+                <div class="content-card h-100">
+                    <div class="card-header-custom">
+                        <h5><i class="bi bi-hdd-network-fill text-primary"></i> System Status</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="status-list">
+                            <!-- ESP32 controller -->
+                            <div class="status-line">
+                                <span class="sl-icon"><i class="bi bi-cpu"></i></span>
+                                <div class="sl-body">
+                                    <div class="sl-title">ESP32 Controller</div>
+                                    <div class="sl-meta">
+                                        {% if not controller_configured %}Not registered
+                                        {% elif controller_last_seen %}Last data {{ controller_last_seen|timesince }} ago
+                                        {% else %}No data received yet{% endif %}
+                                    </div>
+                                </div>
+                                <div class="sl-state">
+                                    {% if not controller_configured %}
+                                        <span class="status-pill off">N/A</span>
+                                    {% elif controller_online %}
+                                        <span class="status-pill on"><span class="status-dot good"></span> Online</span>
+                                    {% else %}
+                                        <span class="status-pill off"><span class="status-dot bad"></span> Offline</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <!-- Camera -->
+                            <div class="status-line">
+                                <span class="sl-icon"><i class="bi bi-camera-video-fill"></i></span>
+                                <div class="sl-body">
+                                    <div class="sl-title">Camera</div>
+                                    <div class="sl-meta">
+                                        {% if camera_status.camera %}{{ camera_status.camera.name }}{% else %}Not configured{% endif %}
+                                    </div>
+                                </div>
+                                <div class="sl-state">
+                                    {% if not camera_status.configured %}
+                                        <span class="status-pill off">N/A</span>
+                                    {% elif camera_status.online %}
+                                        <span class="status-pill on"><span class="status-dot good"></span> Online</span>
+                                    {% else %}
+                                        <span class="status-pill off"><span class="status-dot bad"></span> Offline</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <!-- Detection model -->
+                            <div class="status-line">
+                                <span class="sl-icon"><i class="bi bi-robot"></i></span>
+                                <div class="sl-body">
+                                    <div class="sl-title">Detection Model</div>
+                                    <div class="sl-meta">
+                                        {% if active_model %}{{ active_model.name }} v{{ active_model.version }}{% else %}No active model{% endif %}
+                                    </div>
+                                </div>
+                                <div class="sl-state">
+                                    {% if active_model %}
+                                        <span class="status-pill on"><span class="status-dot good"></span> Active</span>
+                                    {% else %}
+                                        <span class="status-pill off">None</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Automation summary (read-only; controls live on the Automation page) -->
+            <div class="col-lg-6">
+                <div class="content-card h-100">
+                    <div class="card-header-custom">
+                        <h5><i class="bi bi-robot text-primary"></i> Automation</h5>
+                        <a href="/iot/automation/" class="stat-link">Manage <i class="bi bi-arrow-right"></i></a>
+                    </div>
+                    <div class="card-body-custom">
+                        <div class="status-list">
+                            <!-- Auto feeding -->
+                            <div class="status-line">
+                                <span class="sl-icon"><i class="bi bi-basket-fill"></i></span>
+                                <div class="sl-body">
+                                    <div class="sl-title">Automated Feeding</div>
+                                    <div class="sl-meta"><span class="active-schedules-count">{{ active_schedules }}</span> active schedule{{ active_schedules|pluralize }}</div>
+                                </div>
+                                <div class="sl-state">
+                                    <span class="status-pill {% if auto_feed_enabled %}on{% else %}off{% endif %} auto-feed-status-value">{{ auto_feed_enabled|yesno:"ON,OFF" }}</span>
+                                </div>
+                            </div>
+                            <!-- Door -->
+                            <div class="status-line">
+                                <span class="sl-icon"><i class="bi bi-door-{% if actuators.door.current_state == 'open' %}open{% else %}closed{% endif %}-fill"></i></span>
+                                <div class="sl-body">
+                                    <div class="sl-title">Door</div>
+                                    <div class="sl-meta">
+                                        {% if actuators.door %}{{ actuators.door.get_mode_display|default:actuators.door.mode }}{% if actuators.door.last_changed_at %} · {{ actuators.door.last_changed_at|timesince }} ago{% endif %}{% else %}No actuator{% endif %}
+                                    </div>
+                                </div>
+                                <div class="sl-state">
+                                    {% if actuators.door %}
+                                        <span class="status-pill {% if actuators.door.current_state == 'open' %}on{% else %}off{% endif %}">{{ actuators.door.current_state|title }}</span>
+                                    {% else %}<span class="status-pill off">—</span>{% endif %}
+                                </div>
+                            </div>
+                            <!-- Lighting -->
+                            <div class="status-line">
+                                <span class="sl-icon"><i class="bi bi-lightbulb{% if actuators.light.current_state == 'on' %}-fill{% endif %}"></i></span>
+                                <div class="sl-body">
+                                    <div class="sl-title">Lighting</div>
+                                    <div class="sl-meta">
+                                        {% if actuators.light %}{{ actuators.light.get_mode_display|default:actuators.light.mode }}{% if actuators.light.last_changed_at %} · {{ actuators.light.last_changed_at|timesince }} ago{% endif %}{% else %}No actuator{% endif %}
+                                    </div>
+                                </div>
+                                <div class="sl-state">
+                                    {% if actuators.light %}
+                                        <span class="status-pill {% if actuators.light.current_state == 'on' %}on{% else %}off{% endif %}">{{ actuators.light.current_state|title }}</span>
+                                    {% else %}<span class="status-pill off">—</span>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outdoor Weather -->
+    <div style="padding: 0 30px 20px;">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <h5>
+                    <i class="bi bi-cloud-sun text-primary"></i>
+                    Outdoor Weather (Open-Meteo)
+                </h5>
+                {% if weather_info.stale %}
+                    <span class="badge bg-warning text-dark">Using last cached weather</span>
+                {% endif %}
+            </div>
+            <div class="card-body-custom">
+                {% if weather_info.available %}
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded weather-card">
+                                <div class="weather-icon mb-1"><i class="bi bi-thermometer-sun-fill"></i></div>
+                                <div class="fs-5 fw-bold weather-value">{{ weather_info.temperature_c|default:'--' }}&deg;C</div>
+                                <small class="text-muted">Outside Temp</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded weather-card">
+                                <div class="weather-icon mb-1"><i class="bi bi-droplet-fill"></i></div>
+                                <div class="fs-5 fw-bold weather-value">{{ weather_info.humidity_pct|default:'--' }}%</div>
+                                <small class="text-muted">Outside Humidity</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded weather-card">
+                                <div class="weather-icon mb-1"><i class="bi bi-cloud-rain-fill"></i></div>
+                                <div class="fs-5 fw-bold weather-value">{{ weather_info.rain_chance_pct|default:weather_info.today_rain_chance_pct|default:'--' }}%</div>
+                                <small class="text-muted">Rain Chance</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded weather-card">
+                                <div class="weather-icon mb-1"><i class="bi bi-cloud-sun-fill"></i></div>
+                                <div class="fs-6 fw-bold weather-condition">{{ weather_info.summary|default:'N/A' }}</div>
+                                <small class="text-muted">Condition</small>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-muted">Weather API is currently unavailable. Local sensor data is still active.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Farm Map -->
+    <div style="padding: 0 30px 30px;">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <h5>
+                    <i class="bi bi-house-fill text-success"></i>
+                    3D Bahay ng Kambing
+                </h5>
+                <small class="text-muted">Interactive 3D visualization</small>
+            </div>
+            <div class="card-body-custom p-0">
+                <style>
+                    #canvas-container-3d {
+                        width: 100%;
+                        height: 600px;
+                        position: relative;
+                        background: linear-gradient(to bottom, #a8d8f0 0%, #e8f4f8 100%);
+                    }
+                    #info-3d {
+                        position: absolute;
+                        top: 10px;
+                        left: 10px;
+                        color: white;
+                        background: rgba(0, 0, 0, 0.7);
+                        padding: 15px;
+                        border-radius: 5px;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        z-index: 1000;
+                    }
+                    #info-3d h3 {
+                        margin: 0 0 10px 0;
+                        font-size: 16px;
+                    }
+
+                    .barn-controls {
+                        position: absolute;
+                        inset: 0;
+                        pointer-events: none;
+                        z-index: 1100;
+                    }
+
+                    .barn-control-btn {
+                        position: absolute;
+                        width: 46px;
+                        height: 46px;
+                        border-radius: 50%;
+                        border: 1px solid rgba(0, 0, 0, 0.08);
+                        background: rgba(255, 255, 255, 0.92);
+                        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.16);
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #1f2937;
+                        pointer-events: auto;
+                        transition: transform 0.2s ease, box-shadow 0.2s ease;
+                    }
+
+                    .barn-control-btn:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 10px 18px rgba(15, 23, 42, 0.2);
+                    }
+
+                    .barn-control-btn i {
+                        font-size: 1.2rem;
+                    }
+
+                    .control-feeder { left: 18%; top: 52%; }
+                    .control-camera { left: 52%; top: 26%; }
+                    .control-light { left: 65%; top: 52%; }
+                    .control-door { left: 38%; top: 68%; }
+
+                    .barn-control-popup {
+                        position: absolute;
+                        min-width: 210px;
+                        padding: 12px 14px;
+                        border-radius: 12px;
+                        background: rgba(255, 255, 255, 0.98);
+                        border: 1px solid rgba(148, 163, 184, 0.3);
+                        box-shadow: 0 16px 30px rgba(15, 23, 42, 0.2);
+                        display: none;
+                        pointer-events: auto;
+                    }
+
+                    .barn-control-popup.active {
+                        display: block;
+                    }
+
+                    .barn-control-popup h6 {
+                        margin: 0 0 6px;
+                        font-weight: 700;
+                        color: #0f172a;
+                    }
+
+                    .popup-status {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        font-size: 0.85rem;
+                        color: #475569;
+                        margin-bottom: 10px;
+                    }
+
+                    .popup-status .status-dot {
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 999px;
+                        background: #cbd5f5;
+                    }
+
+                    .popup-status .status-dot.good { background: #22c55e; }
+                    .popup-status .status-dot.warn { background: #f59e0b; }
+                    .popup-status .status-dot.bad { background: #ef4444; }
+
+                    .popup-actions {
+                        display: flex;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                    }
+
+                    .popup-actions .btn {
+                        padding: 6px 12px;
+                    }
+
+                    .barn-control-popup[data-control="feeder"] { left: 8%; top: 20%; }
+                    .barn-control-popup[data-control="camera"] { left: 56%; top: 8%; }
+                    .barn-control-popup[data-control="light"] { left: 68%; top: 30%; }
+                    .barn-control-popup[data-control="door"] { left: 40%; top: 78%; }
+
+                    [data-theme="dark"] #canvas-container-3d .barn-control-btn {
+                        background: rgba(30, 41, 59, 0.92);
+                        color: #e2e8f0;
+                        border-color: rgba(148, 163, 184, 0.2);
+                    }
+
+                    [data-theme="dark"] #canvas-container-3d .barn-control-popup {
+                        background: rgba(30, 41, 59, 0.98);
+                        border-color: rgba(148, 163, 184, 0.25);
+                    }
+
+                    [data-theme="dark"] #canvas-container-3d .barn-control-popup h6 {
+                        color: #e2e8f0;
+                    }
+
+                    [data-theme="dark"] #canvas-container-3d .popup-status {
+                        color: #cbd5f5;
+                    }
+
+                    @media (max-width: 768px) {
+                        #canvas-container-3d { height: 420px; }
+                        .barn-control-btn { width: 40px; height: 40px; }
+                        .control-feeder { left: 10%; top: 58%; }
+                        .control-camera { left: 50%; top: 18%; }
+                        .control-light { left: 70%; top: 58%; }
+                        .control-door { left: 32%; top: 72%; }
+                        .barn-control-popup { min-width: 190px; }
+                    }
+                </style>
+                <div id="canvas-container-3d">
+                    <div class="barn-controls" data-camera-id="{% if camera %}{{ camera.id }}{% endif %}">
+                        <button class="barn-control-btn control-feeder" data-control="feeder" aria-label="Feeder control">
+                            <i class="bi bi-box-seam"></i>
+                        </button>
+                        <button class="barn-control-btn control-camera" data-control="camera" aria-label="Camera control">
+                            <i class="bi bi-camera-video"></i>
+                        </button>
+                        <button class="barn-control-btn control-light" data-control="light" aria-label="Light control">
+                            <i class="bi bi-lightbulb"></i>
+                        </button>
+                        <button class="barn-control-btn control-door" data-control="door" aria-label="Door control">
+                            <i class="bi bi-door-closed"></i>
+                        </button>
+                    </div>
+                    <div class="barn-control-popup" data-control="feeder">
+                        <h6>Feeder Control</h6>
+                        <div class="popup-status">
+                            <span class="status-dot" data-status-dot="feeder"></span>
+                            <span data-status-text="feeder">Loading...</span>
+                        </div>
+                        <div class="popup-actions">
+                            <button class="btn btn-sm btn-primary" data-action="feeder-toggle">Enable auto feed</button>
+                        </div>
+                    </div>
+                    <div class="barn-control-popup" data-control="camera">
+                        <h6>Camera Control</h6>
+                        <div class="popup-status">
+                            <span class="status-dot" data-status-dot="camera"></span>
+                            <span data-status-text="camera">Loading...</span>
+                        </div>
+                        <div class="popup-actions">
+                            <button class="btn btn-sm btn-primary" data-action="camera-toggle">Start camera</button>
+                        </div>
+                    </div>
+                    <div class="barn-control-popup" data-control="light">
+                        <h6>Light Control</h6>
+                        <div class="popup-status">
+                            <span class="status-dot" data-status-dot="light"></span>
+                            <span data-status-text="light">Loading...</span>
+                        </div>
+                        <div class="popup-actions">
+                            <button class="btn btn-sm btn-primary" data-action="light-toggle">Turn on</button>
+                        </div>
+                    </div>
+                    <div class="barn-control-popup" data-control="door">
+                        <h6>Door Control</h6>
+                        <div class="popup-status">
+                            <span class="status-dot" data-status-dot="door"></span>
+                            <span data-status-text="door">Loading...</span>
+                        </div>
+                        <div class="popup-actions">
+                            <button class="btn btn-sm btn-primary" data-action="door-toggle">Open door</button>
+                        </div>
+                    </div>
+                    <div id="info-3d">
+                        <h3>3D Bahay ng Kambing</h3>
+                        <strong>Controls:</strong><br>
+                        • Drag to rotate<br>
+                        • Scroll to zoom<br>
+                        • Right-click drag to pan<br>
+                        <br>
+                        <strong>Camera Views:</strong><br>
+                        • Press 1 - Front View<br>
+                        • Press 2 - Right View<br>
+                        • Press 3 - Back View<br>
+                        • Press 4 - Left View<br>
+                        • Press 5 - Free Orbit
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Security alerts + Recent activity ===== -->
+    <div style="padding: 0 30px 30px;">
+        <div class="row g-4">
+            <!-- Active Alerts (real, from unresolved iot.Alert) -->
+            <div class="col-lg-6">
+                <div class="content-card h-100">
+                    <div class="card-header-custom">
+                        <h5>
+                            <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+                            Active Alerts
+                        </h5>
+                        <span class="badge {% if active_alert_count %}bg-danger{% else %}bg-success{% endif %}">{{ active_alert_count }}</span>
+                    </div>
+                    <div class="card-body-custom">
+                        {% if alerts %}
+                            <div class="list-group list-group-flush">
+                                {% for alert in alerts %}
+                                <div class="list-group-item border-0 px-0">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <span class="badge bg-{{ alert.severity_class }} me-2">{{ alert.get_severity_display|default:alert.severity }}</span>
+                                            <strong>{{ alert.message|truncatechars:80 }}</strong>
+                                            <div class="small text-muted mt-1">
+                                                {% if alert.device %}<i class="bi bi-cpu"></i> {{ alert.device.name|default:alert.device.device_id }}{% endif %}
+                                                <i class="bi bi-clock ms-2"></i> {{ alert.created_at|timesince }} ago
+                                            </div>
+                                        </div>
+                                        <span class="badge bg-danger">Active</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="mt-3">
+                                <a href="/security/" class="stat-link">View all in Security <i class="bi bi-arrow-right"></i></a>
+                            </div>
+                        {% else %}
+                            <div class="empty-state">
+                                <i class="bi bi-shield-check"></i>
+                                <h5>No active alerts</h5>
+                                <p>Sensor and device alerts will appear here when they occur.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity (merged real events: commands, feeding, detections, alerts) -->
+            <div class="col-lg-6">
+                <div class="content-card h-100">
+                    <div class="card-header-custom">
+                        <h5><i class="bi bi-activity text-primary"></i> Recent Activity</h5>
+                    </div>
+                    <div class="card-body-custom">
+                        {% if recent_activity %}
+                            <div class="activity-feed">
+                                {% for item in recent_activity %}
+                                <div class="activity-item">
+                                    <span class="act-icon {{ item.tone }}"><i class="bi {{ item.icon }}"></i></span>
+                                    <div class="act-body">
+                                        <div class="act-title">{{ item.title }}</div>
+                                        <div class="act-meta">
+                                            {% if item.detail %}{{ item.detail }} · {% endif %}{{ item.timestamp|timesince }} ago
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="empty-state">
+                                <i class="bi bi-clock-history"></i>
+                                <h5>No recent activity</h5>
+                                <p>Commands, feedings and detections will show up here.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Single Camera Feed - Goat House Monitoring -->
+    {% if camera %}
+    <div style="padding: 0 30px 30px;">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <h5>
+                    <i class="bi bi-camera-video-fill text-info"></i>
+                    Bahay ng Kambing
+                </h5>
+                <span class="badge bg-info">Live Monitoring</span>
+            </div>
+            <div class="card-body-custom">
+                <div class="camera-card border rounded overflow-hidden shadow-sm">
+                    <div class="camera-header bg-dark text-white p-2 d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-camera-fill"></i> 
+                            <strong>{{ camera.name }}</strong>
+                        </span>
+                        <small>
+                            <i class="bi bi-house-door-fill"></i> {{ camera.location }}
+                        </small>
+                    </div>
+                    <div class="camera-body" style="position: relative; background: #000; min-height: 400px;">
+                        <img src="{% url 'iot:camera_feed' camera.id %}"
+                             alt="{{ camera.name }}"
+                             style="width: 100%; height: auto; display: block;"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="camera-offline" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #1a1a1a; color: white; align-items: center; justify-content: center; flex-direction: column;">
+                            <i class="bi bi-camera-video-off-fill" style="font-size: 3rem;"></i>
+                            <p class="mt-2">Camera Offline</p>
+                            <small class="text-muted">Check camera connection</small>
+                        </div>
+                    </div>
+                    <div class="camera-footer bg-light p-2 d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="bi bi-ethernet"></i> {{ camera.ip_address }}:{{ camera.port }}
+                        </small>
+                        <div>
+                            <a href="{% url 'iot:camera_detail' camera.id %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-arrows-fullscreen"></i> Full View
+                            </a>
+                            <a href="/ml/detection/" class="btn btn-sm btn-success ms-2">
+                                <i class="bi bi-cpu"></i> Detection
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3 p-3 bg-light rounded">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <i class="bi bi-camera-fill text-info fs-4"></i>
+                            <div class="mt-2"><strong>Single Camera</strong></div>
+                            <small class="text-muted">Inside goat house</small>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="bi bi-eye-fill text-success fs-4"></i>
+                            <div class="mt-2"><strong>Goat Detection</strong></div>
+                            <small class="text-muted">AI-powered counting</small>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="bi bi-activity text-warning fs-4"></i>
+                            <div class="mt-2"><strong>Behavior Monitor</strong></div>
+                            <small class="text-muted">Activity tracking</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Update last update time
+    function updateLastUpdate() {
+        const now = new Date();
+        document.getElementById('last-update').textContent = now.toLocaleTimeString();
+    }
+    
+    // Function to update auto-feed status dynamically
+    function updateAutoFeedStatus() {
+        fetch('/feeding/api/config/status/')
+            .then(response => response.json())
+            .then(data => {
+                const statusElement = document.querySelector('.auto-feed-status-value');
+                if (statusElement) {
+                    statusElement.textContent = data.is_enabled ? 'ON' : 'OFF';
+                }
+            })
+            .catch(error => console.error('Error fetching auto-feed status:', error));
+        
+        // Update active schedules count
+        fetch('/feeding/api/schedules/')
+            .then(response => response.json())
+            .then(data => {
+                const results = data.results || data;
+                const activeCount = results.filter(s => s.is_active).length;
+                const countElement = document.querySelector('.active-schedules-count');
+                if (countElement) {
+                    countElement.textContent = activeCount;
+                }
+            })
+            .catch(error => console.error('Error fetching schedules:', error));
+    }
+    
+    // Update status on page load
+    updateAutoFeedStatus();
+
+    // Refresh only the BLE summary; the full page and 3D view remain untouched.
+    function updateBleSummary() {
+        const section = document.querySelector('[data-ble-summary]');
+        if (!section || document.hidden) return;
+        fetch(section.dataset.apiUrl, {
+            credentials: 'same-origin',
+            headers: {'Accept': 'application/json'},
+            cache: 'no-store'
+        })
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
+            .then(data => {
+                const summary = data.summary || {};
+                const bindings = {
+                    bleTracked: 'tracked_goats',
+                    bleDetected: 'detected',
+                    bleOutOfRange: 'out_of_range',
+                    bleVeryNear: 'very_near',
+                    bleNear: 'near'
+                };
+                Object.entries(bindings).forEach(([id, key]) => {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = summary[key] ?? 0;
+                });
+
+                const receivers = data.receivers || [];
+                const online = receivers.filter(receiver => receiver.status === 'online');
+                const state = document.getElementById('bleReceiverState');
+                const text = document.getElementById('bleReceiverText');
+                if (state && text) {
+                    state.className = 'ble-summary-state ' + (online.length ? 'online' : 'offline');
+                    if (online.length) {
+                        text.textContent = online.length === 1
+                            ? online[0].name + ' online'
+                            : online.length + ' receivers online';
+                    } else {
+                        text.textContent = receivers.length
+                            ? 'Receiver offline'
+                            : 'No receiver configured';
+                    }
+                }
+            })
+            .catch(() => {
+                const state = document.getElementById('bleReceiverState');
+                const text = document.getElementById('bleReceiverText');
+                if (state) state.className = 'ble-summary-state offline';
+                if (text) text.textContent = 'BLE update unavailable';
+            });
+    }
+    updateBleSummary();
+    setInterval(updateBleSummary, 5000);
+    
+    // Poll for changes every 5 seconds
+    setInterval(updateAutoFeedStatus, 5000);
+    
+    // Listen for localStorage changes (cross-tab communication)
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'autoFeedStatus') {
+            updateAutoFeedStatus();
+        }
+    });
+    
+    // Refresh sensor/status data periodically. This is a pragmatic poll: the
+    // channel layer is in-memory (no cross-process WebSocket), so the server
+    // can't push. We reload only when the tab is visible and the user isn't
+    // mid-interaction with a barn control popup, so we don't reset the 3D scene
+    // or interrupt an action.
+    setInterval(() => {
+        updateLastUpdate();
+        const popupOpen = document.querySelector('.barn-control-popup.active');
+        if (document.visibilityState === 'visible' && !popupOpen) {
+            location.reload();
+        }
+    }, 45000);
+    
+    // Add hover shadow effect
+    const style = document.createElement('style');
+    style.textContent = `
+        .hover-shadow {
+            transition: box-shadow 0.2s;
+        }
+        .hover-shadow:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+    `;
+    document.head.appendChild(style);
+
+    // ===== 3D Goat Barn Initialization =====
+    (function() {
+        const container = document.getElementById('canvas-container-3d');
+        if (!container) return;
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xa8d8f0);
+        scene.fog = new THREE.Fog(0xa8d8f0, 25, 60);
+
+        // Camera setup
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            container.clientWidth / container.clientHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(8, 6, 8);
+
+        // Camera view positions
+        const cameraViews = {
+            front: { position: new THREE.Vector3(0, 4, 10), target: new THREE.Vector3(0, 2, 0) },
+            right: { position: new THREE.Vector3(10, 4, 0), target: new THREE.Vector3(0, 2, 0) },
+            back: { position: new THREE.Vector3(0, 4, -10), target: new THREE.Vector3(0, 2, 0) },
+            left: { position: new THREE.Vector3(-10, 4, 0), target: new THREE.Vector3(0, 2, 0) },
+            free: { position: new THREE.Vector3(8, 6, 8), target: new THREE.Vector3(0, 2, 0) }
+        };
+
+        let currentView = 'free';
+
+        // Renderer setup
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xfff4e6, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xfff8dc, 0.8);
+        directionalLight.position.set(10, 15, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.left = -15;
+        directionalLight.shadow.camera.right = 15;
+        directionalLight.shadow.camera.top = 15;
+        directionalLight.shadow.camera.bottom = -15;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+
+        const pointLight = new THREE.PointLight(0xffa500, 0.4, 20);
+        pointLight.position.set(0, 3, 0);
+        pointLight.castShadow = true;
+        scene.add(pointLight);
+
+        const fillLight = new THREE.DirectionalLight(0xb0e0e6, 0.3);
+        fillLight.position.set(-10, 5, -5);
+        scene.add(fillLight);
+
+        // Ground
+        const groundGeometry = new THREE.PlaneGeometry(30, 30, 20, 20);
+        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x6a9e3d, flatShading: true });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.01;
+        ground.receiveShadow = true;
+        
+        const positions = ground.geometry.attributes.position;
+        for (let i = 0; i < positions.count; i++) {
+            positions.setY(i, Math.random() * 0.05);
+        }
+        positions.needsUpdate = true;
+        ground.geometry.computeVertexNormals();
+        scene.add(ground);
+
+        // Path
+        const pathGeometry = new THREE.PlaneGeometry(2, 4);
+        const pathMaterial = new THREE.MeshLambertMaterial({ color: 0x8b7355 });
+        const path = new THREE.Mesh(pathGeometry, pathMaterial);
+        path.rotation.x = -Math.PI / 2;
+        path.position.set(0, 0.02, 3.5);
+        path.receiveShadow = true;
+        scene.add(path);
+
+        // Goat Barn
+        const goatBarn = new THREE.Group();
+        const borderMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
+        
+        // Floor
+        const floor = new THREE.Mesh(
+            new THREE.BoxGeometry(5, 0.3, 4),
+            new THREE.MeshLambertMaterial({ color: 0x8b6914 })
+        );
+        floor.position.y = 0.25;
+        floor.castShadow = true;
+        floor.receiveShadow = true;
+        goatBarn.add(floor);
+
+        // Floor borders
+        const borders = [
+            [new THREE.BoxGeometry(5.2, 0.35, 0.15), [0, 0.25, -2]],
+            [new THREE.BoxGeometry(5.2, 0.35, 0.15), [0, 0.25, 2]],
+            [new THREE.BoxGeometry(0.15, 0.35, 4), [-2.5, 0.25, 0]],
+            [new THREE.BoxGeometry(0.15, 0.35, 4), [2.5, 0.25, 0]]
+        ];
+        borders.forEach(([geom, pos]) => {
+            const border = new THREE.Mesh(geom, borderMaterial);
+            border.position.set(...pos);
+            border.castShadow = true;
+            goatBarn.add(border);
+        });
+
+        // Floor planks
+        for (let i = 0; i < 8; i++) {
+            const plank = new THREE.Mesh(
+                new THREE.BoxGeometry(5.1, 0.32, 0.05),
+                new THREE.MeshLambertMaterial({ color: 0x6b5714 })
+            );
+            plank.position.set(0, 0.25, -1.8 + i * 0.5);
+            goatBarn.add(plank);
+        }
+
+        // Platform
+        const platformHeight = 0.8;
+        const platform = new THREE.Mesh(
+            new THREE.BoxGeometry(5, 0.3, 2),
+            new THREE.MeshLambertMaterial({ color: 0xa67c52 })
+        );
+        platform.position.set(0, 0.25 + platformHeight, -1);
+        platform.castShadow = true;
+        platform.receiveShadow = true;
+        goatBarn.add(platform);
+
+        // Platform planks
+        for (let i = 0; i < 4; i++) {
+            const plank = new THREE.Mesh(
+                new THREE.BoxGeometry(5.1, 0.32, 0.05),
+                new THREE.MeshLambertMaterial({ color: 0x8b6443 })
+            );
+            plank.position.set(0, 0.25 + platformHeight, -1.8 + i * 0.5);
+            goatBarn.add(plank);
+        }
+
+        // Platform borders
+        [[new THREE.BoxGeometry(5.2, 0.35, 0.15), [0, 0.25 + platformHeight, -2]],
+         [new THREE.BoxGeometry(0.15, 0.35, 2), [-2.5, 0.25 + platformHeight, -1]],
+         [new THREE.BoxGeometry(0.15, 0.35, 2), [2.5, 0.25 + platformHeight, -1]]
+        ].forEach(([geom, pos]) => {
+            const border = new THREE.Mesh(geom, borderMaterial);
+            border.position.set(...pos);
+            border.castShadow = true;
+            goatBarn.add(border);
+        });
+
+        // Support posts
+        const supportPostGeometry = new THREE.BoxGeometry(0.15, platformHeight, 0.15);
+        const supportPostMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
+        [[-2, 0.25 + platformHeight/2, -1.8], [2, 0.25 + platformHeight/2, -1.8],
+         [-2, 0.25 + platformHeight/2, -0.2], [2, 0.25 + platformHeight/2, -0.2]
+        ].forEach(pos => {
+            const post = new THREE.Mesh(supportPostGeometry, supportPostMaterial);
+            post.position.set(...pos);
+            post.castShadow = true;
+            goatBarn.add(post);
+        });
+
+        // Ramp
+        const rampWidth = 1.5, rampLength = 2;
+        const rampAngle = Math.atan(platformHeight / rampLength);
+        const ramp = new THREE.Mesh(
+            new THREE.BoxGeometry(rampWidth, 0.15, rampLength),
+            new THREE.MeshLambertMaterial({ color: 0xa67c52 })
+        );
+        ramp.rotation.x = rampAngle;
+        ramp.position.set(0, 0.25 + platformHeight/2, -0.1);
+        ramp.castShadow = true;
+        goatBarn.add(ramp);
+
+        // Ramp cleats
+        for (let i = 0; i < 5; i++) {
+            const cleat = new THREE.Mesh(
+                new THREE.BoxGeometry(rampWidth, 0.08, 0.08),
+                new THREE.MeshLambertMaterial({ color: 0x654321 })
+            );
+            cleat.position.set(0, 0.25 + (platformHeight * (i * 0.4) / rampLength), 0.8 - i * 0.4);
+            cleat.rotation.x = rampAngle;
+            cleat.castShadow = true;
+            goatBarn.add(cleat);
+        }
+
+        // Ramp rails
+        const railGeometry = new THREE.BoxGeometry(0.08, 0.08, rampLength);
+        [-1, 1].forEach(side => {
+            const rail = new THREE.Mesh(railGeometry, new THREE.MeshLambertMaterial({ color: 0x654321 }));
+            rail.rotation.x = rampAngle;
+            rail.position.set(side * (rampWidth/2 + 0.05), 0.25 + platformHeight/2, -0.1);
+            rail.castShadow = true;
+            goatBarn.add(rail);
+        });
+
+        // Bamboo materials
+        const bambooPole = new THREE.MeshLambertMaterial({ color: 0xc4a35a });
+        const bambooTie = new THREE.MeshLambertMaterial({ color: 0x9b8b4a });
+
+        function createBambooPanel(width, height) {
+            const panel = new THREE.Group();
+            const poleRadius = 0.04, spacing = 0.12;
+            const numPoles = Math.floor(width / spacing);
+            
+            for (let i = 0; i < numPoles; i++) {
+                const pole = new THREE.Mesh(
+                    new THREE.CylinderGeometry(poleRadius, poleRadius, height, 8),
+                    bambooPole
+                );
+                pole.position.x = (i - numPoles / 2) * spacing + spacing / 2;
+                pole.position.y = height / 2;
+                pole.castShadow = true;
+                panel.add(pole);
+            }
+            
+            [height * 0.25, height * 0.5, height * 0.75].forEach(y => {
+                const tie = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.025, 0.025, width, 8),
+                    bambooTie
+                );
+                tie.rotation.z = Math.PI / 2;
+                tie.position.y = y;
+                tie.castShadow = true;
+                panel.add(tie);
+            });
+            
+            return panel;
+        }
+
+        // Walls
+        const backWall = createBambooPanel(5, 2.5);
+        backWall.position.set(0, 0.2, -2);
+        goatBarn.add(backWall);
+
+        const leftWall = createBambooPanel(4, 2.5);
+        leftWall.rotation.y = Math.PI / 2;
+        leftWall.position.set(-2.5, 0.2, 0);
+        goatBarn.add(leftWall);
+
+        const rightWall = createBambooPanel(4, 2.5);
+        rightWall.rotation.y = -Math.PI / 2;
+        rightWall.position.set(2.5, 0.2, 0);
+        goatBarn.add(rightWall);
+
+        const frontLeftWall = createBambooPanel(1.5, 3.2);
+        frontLeftWall.position.set(-1.75, 0.25, 2);
+        goatBarn.add(frontLeftWall);
+
+        const frontRightWall = createBambooPanel(1.5, 3.2);
+        frontRightWall.position.set(1.75, 0.25, 2);
+        goatBarn.add(frontRightWall);
+
+        // Door frame
+        const doorPostLeft = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12, 2.2, 0.12),
+            new THREE.MeshLambertMaterial({ color: 0x654321 })
+        );
+        doorPostLeft.position.set(-0.9, 1.35, 2.05);
+        doorPostLeft.castShadow = true;
+        goatBarn.add(doorPostLeft);
+
+        const doorPostRight = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12, 2.2, 0.12),
+            new THREE.MeshLambertMaterial({ color: 0x654321 })
+        );
+        doorPostRight.position.set(0.9, 1.35, 2.05);
+        doorPostRight.castShadow = true;
+        goatBarn.add(doorPostRight);
+
+        const doorLintel = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 0.15, 0.15),
+            new THREE.MeshLambertMaterial({ color: 0x654321 })
+        );
+        doorLintel.position.set(0, 2.45, 2.05);
+        doorLintel.castShadow = true;
+        goatBarn.add(doorLintel);
+
+        // Door
+        const doorPanel = new THREE.Group();
+        const doorBoard = new THREE.Mesh(
+            new THREE.BoxGeometry(0.85, 2.1, 0.08),
+            new THREE.MeshLambertMaterial({ color: 0x8b6914 })
+        );
+        doorBoard.castShadow = true;
+        doorPanel.add(doorBoard);
+
+        for (let i = 0; i < 5; i++) {
+            const plank = new THREE.Mesh(
+                new THREE.BoxGeometry(0.87, 0.08, 0.09),
+                new THREE.MeshLambertMaterial({ color: 0x6b5714 })
+            );
+            plank.position.y = -0.8 + i * 0.4;
+            doorPanel.add(plank);
+        }
+
+        const handle = new THREE.Mesh(
+            new THREE.BoxGeometry(0.08, 0.25, 0.08),
+            new THREE.MeshLambertMaterial({ color: 0x4a4a4a })
+        );
+        handle.position.set(0.35, 0, 0.05);
+        doorPanel.add(handle);
+
+        doorPanel.position.set(-0.5, 1.3, 2.1);
+        doorPanel.rotation.y = -Math.PI / 6;
+        goatBarn.add(doorPanel);
+
+        // Wall above door
+        const aboveDoorWall = createBambooPanel(2.5, 0.65);
+        aboveDoorWall.position.set(0, 2.75, 2);
+        goatBarn.add(aboveDoorWall);
+
+        // Feeding trough
+        const troughGroup = new THREE.Group();
+        const troughMat = new THREE.MeshLambertMaterial({ color: 0x654321 });
+        
+        const troughBase = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 0.5), troughMat);
+        troughBase.position.y = 0.55;
+        troughBase.castShadow = true;
+        troughGroup.add(troughBase);
+
+        [[-0.25, 'left'], [0.25, 'right']].forEach(([z, name]) => {
+            const side = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 0.05), troughMat);
+            side.position.set(0, 0.72, z);
+            troughGroup.add(side);
+        });
+
+        [[-0.9, 'left'], [0.9, 'right']].forEach(([x, name]) => {
+            const end = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.35, 0.5), troughMat);
+            end.position.set(x, 0.72, 0);
+            troughGroup.add(end);
+        });
+
+        const feed = new THREE.Mesh(
+            new THREE.BoxGeometry(1.7, 0.2, 0.4),
+            new THREE.MeshLambertMaterial({ color: 0xe6d690 })
+        );
+        feed.position.set(0, 0.65, 0);
+        troughGroup.add(feed);
+
+        troughGroup.position.set(1.5, 0, 1.2);
+        goatBarn.add(troughGroup);
+
+        // Roof
+        const corrugatedMetal = new THREE.MeshLambertMaterial({ color: 0x9b9b9b });
+        const metalDark = new THREE.MeshLambertMaterial({ color: 0x707070 });
+        const weatheredWood = new THREE.MeshLambertMaterial({ color: 0x6b5d45 });
+
+        const roofWidth = 6, roofDepth = 5.2;
+        const roofBackHeight = 3.5, roofFrontHeight = 2.5;
+        const roofSlant = Math.atan((roofBackHeight - roofFrontHeight) / roofDepth);
+
+        const mainRoof = new THREE.Mesh(
+            new THREE.BoxGeometry(roofWidth, 0.05, roofDepth),
+            corrugatedMetal
+        );
+        mainRoof.position.set(0, (roofBackHeight + roofFrontHeight) / 2, 0);
+        mainRoof.rotation.x = -roofSlant;
+        mainRoof.castShadow = true;
+        goatBarn.add(mainRoof);
+
+        // Roof ridges
+        for (let i = 0; i < 12; i++) {
+            const ridge = new THREE.Mesh(
+                new THREE.BoxGeometry(0.08, 0.025, roofDepth),
+                metalDark
+            );
+            ridge.position.set(-roofWidth/2 + 0.25 + i * ((roofWidth - 0.5) / 11), 
+                              (roofBackHeight + roofFrontHeight) / 2 + 0.04, 0);
+            ridge.rotation.x = -roofSlant;
+            ridge.castShadow = true;
+            goatBarn.add(ridge);
+        }
+
+        // Support posts
+        [[-2.4, 1.35, -2, 2.8], [2.4, 1.35, -2, 2.8],
+         [-2.4, 1.1, 2, 2.3], [2.4, 1.1, 2, 2.3]
+        ].forEach(([x, y, z, height]) => {
+            const support = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.09, 0.1, height, 6),
+                weatheredWood
+            );
+            support.position.set(x, y, z);
+            support.castShadow = true;
+            goatBarn.add(support);
+        });
+
+        // Beams
+        const beamFront = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.12, 0.12), weatheredWood);
+        beamFront.position.set(0, 2.3, 2);
+        beamFront.castShadow = true;
+        goatBarn.add(beamFront);
+
+        const beamBack = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.12, 0.12), weatheredWood);
+        beamBack.position.set(0, 2.7, -2);
+        beamBack.castShadow = true;
+        goatBarn.add(beamBack);
+
+        scene.add(goatBarn);
+
+        // OrbitControls
+        class OrbitControls {
+            constructor(camera, domElement) {
+                this.camera = camera;
+                this.domElement = domElement;
+                this.target = new THREE.Vector3(0, 2, 0);
+                this.rotateSpeed = 0.5;
+                this.zoomSpeed = 0.5;
+                this.panSpeed = 0.5;
+                this.spherical = new THREE.Spherical();
+                this.sphericalDelta = new THREE.Spherical();
+                this.panOffset = new THREE.Vector3();
+                this.state = { NONE: -1, ROTATE: 0, ZOOM: 1, PAN: 2 };
+                this.currentState = this.state.NONE;
+                this.rotateStart = new THREE.Vector2();
+                this.rotateEnd = new THREE.Vector2();
+                this.rotateDelta = new THREE.Vector2();
+                this.panStart = new THREE.Vector2();
+                this.panEnd = new THREE.Vector2();
+                this.panDelta = new THREE.Vector2();
+                this.scale = 1;
+                
+                this.domElement.addEventListener('mousedown', this.onMouseDown.bind(this));
+                this.domElement.addEventListener('wheel', this.onMouseWheel.bind(this));
+                this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+                this.update();
+            }
+            
+            onMouseDown(event) {
+                event.preventDefault();
+                if (event.button === 0) {
+                    this.currentState = this.state.ROTATE;
+                    this.rotateStart.set(event.clientX, event.clientY);
+                } else if (event.button === 2) {
+                    this.currentState = this.state.PAN;
+                    this.panStart.set(event.clientX, event.clientY);
+                }
+                this.domElement.addEventListener('mousemove', this.onMouseMove.bind(this));
+                this.domElement.addEventListener('mouseup', this.onMouseUp.bind(this));
+            }
+            
+            onMouseMove(event) {
+                event.preventDefault();
+                if (this.currentState === this.state.ROTATE) {
+                    this.rotateEnd.set(event.clientX, event.clientY);
+                    this.rotateDelta.subVectors(this.rotateEnd, this.rotateStart);
+                    this.sphericalDelta.theta -= 2 * Math.PI * this.rotateDelta.x / this.domElement.clientHeight * this.rotateSpeed;
+                    this.sphericalDelta.phi -= 2 * Math.PI * this.rotateDelta.y / this.domElement.clientHeight * this.rotateSpeed;
+                    this.rotateStart.copy(this.rotateEnd);
+                } else if (this.currentState === this.state.PAN) {
+                    this.panEnd.set(event.clientX, event.clientY);
+                    this.panDelta.subVectors(this.panEnd, this.panStart);
+                    this.pan(this.panDelta.x, this.panDelta.y);
+                    this.panStart.copy(this.panEnd);
+                }
+                this.update();
+            }
+            
+            onMouseUp(event) {
+                this.domElement.removeEventListener('mousemove', this.onMouseMove.bind(this));
+                this.domElement.removeEventListener('mouseup', this.onMouseUp.bind(this));
+                this.currentState = this.state.NONE;
+            }
+            
+            onMouseWheel(event) {
+                event.preventDefault();
+                this.scale *= event.deltaY < 0 ? 1 / 0.95 : 0.95;
+                this.update();
+            }
+            
+            pan(deltaX, deltaY) {
+                const offset = new THREE.Vector3();
+                const panLeft = new THREE.Vector3();
+                const panUp = new THREE.Vector3();
+                offset.copy(this.camera.position).sub(this.target);
+                let targetDistance = offset.length() * Math.tan((this.camera.fov / 2) * Math.PI / 180.0);
+                panLeft.setFromMatrixColumn(this.camera.matrix, 0);
+                panLeft.multiplyScalar(-2 * deltaX * targetDistance / this.domElement.clientHeight * this.panSpeed);
+                panUp.setFromMatrixColumn(this.camera.matrix, 1);
+                panUp.multiplyScalar(2 * deltaY * targetDistance / this.domElement.clientHeight * this.panSpeed);
+                this.panOffset.add(panLeft).add(panUp);
+            }
+            
+            update() {
+                const offset = new THREE.Vector3();
+                const quat = new THREE.Quaternion().setFromUnitVectors(this.camera.up, new THREE.Vector3(0, 1, 0));
+                const quatInverse = quat.clone().invert();
+                offset.copy(this.camera.position).sub(this.target);
+                offset.applyQuaternion(quat);
+                this.spherical.setFromVector3(offset);
+                this.spherical.theta += this.sphericalDelta.theta;
+                this.spherical.phi += this.sphericalDelta.phi;
+                this.spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.spherical.phi));
+                this.spherical.radius *= this.scale;
+                this.spherical.radius = Math.max(3, Math.min(30, this.spherical.radius));
+                this.target.add(this.panOffset);
+                offset.setFromSpherical(this.spherical);
+                offset.applyQuaternion(quatInverse);
+                this.camera.position.copy(this.target).add(offset);
+                this.camera.lookAt(this.target);
+                this.sphericalDelta.set(0, 0, 0);
+                this.panOffset.set(0, 0, 0);
+                this.scale = 1;
+                return true;
+            }
+        }
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+
+        // Keyboard controls
+        window.addEventListener('keydown', (event) => {
+            let view = null;
+            switch(event.key) {
+                case '1': view = 'front'; break;
+                case '2': view = 'right'; break;
+                case '3': view = 'back'; break;
+                case '4': view = 'left'; break;
+                case '5': view = 'free'; break;
+            }
+            if (view) {
+                currentView = view;
+                const viewData = cameraViews[view];
+                camera.position.copy(viewData.position);
+                controls.target.copy(viewData.target);
+                controls.update();
+            }
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        animate();
+    })();
+
+    // ===== 3D Barn Control Popups =====
+    (function() {
+        const controlsLayer = document.querySelector('.barn-controls');
+        if (!controlsLayer) return;
+
+        const popups = document.querySelectorAll('.barn-control-popup');
+        const buttons = document.querySelectorAll('.barn-control-btn');
+        const cameraId = controlsLayer.dataset.cameraId || '';
+        const currentUser = "{{ user.username|escapejs }}";
+
+        const state = {
+            feeder: { enabled: null },
+            camera: { active: null },
+            door: { id: null, current: null },
+            light: { id: null, current: null }
+        };
+
+        function getCsrfToken() {
+            const match = document.cookie.match(/csrftoken=([^;]+)/);
+            if (match) return match[1];
+            const hiddenToken = document.querySelector('#csrf-token-form input[name="csrfmiddlewaretoken"]');
+            return hiddenToken ? hiddenToken.value : '';
+        }
+
+        function setStatus(control, text, level) {
+            const textEl = document.querySelector(`[data-status-text="${control}"]`);
+            const dotEl = document.querySelector(`[data-status-dot="${control}"]`);
+            if (textEl) textEl.textContent = text;
+            if (dotEl) {
+                dotEl.classList.remove('good', 'warn', 'bad');
+                if (level) dotEl.classList.add(level);
+            }
+        }
+
+        function setActionLabel(control, label, disabled) {
+            const button = document.querySelector(`[data-action="${control}-toggle"]`);
+            if (!button) return;
+            button.textContent = label;
+            button.disabled = Boolean(disabled);
+        }
+
+        function closePopups(exceptControl) {
+            popups.forEach(popup => {
+                const isTarget = popup.dataset.control === exceptControl;
+                popup.classList.toggle('active', Boolean(exceptControl) && isTarget);
+            });
+        }
+
+        buttons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const control = button.dataset.control;
+                const popup = document.querySelector(`.barn-control-popup[data-control="${control}"]`);
+                const isOpen = popup && popup.classList.contains('active');
+                closePopups(isOpen ? null : control);
+                if (!isOpen) {
+                    refreshStatuses(control);
+                }
+            });
+        });
+
+        document.addEventListener('click', () => closePopups(null));
+        popups.forEach(popup => popup.addEventListener('click', event => event.stopPropagation()));
+
+        function postJson(url, payload) {
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify(payload || {}),
+                credentials: 'same-origin'
+            }).then(response => response.json());
+        }
+
+        function refreshFeeder() {
+            fetch('/feeding/api/config/status/', { credentials: 'same-origin' })
+                .then(response => response.json())
+                .then(data => {
+                    state.feeder.enabled = Boolean(data.is_enabled);
+                    setStatus('feeder', state.feeder.enabled ? 'Auto feed enabled' : 'Auto feed disabled', state.feeder.enabled ? 'good' : 'warn');
+                    setActionLabel('feeder', state.feeder.enabled ? 'Disable auto feed' : 'Enable auto feed');
+                })
+                .catch(() => setStatus('feeder', 'Status unavailable', 'bad'));
+        }
+
+        function refreshCamera() {
+            if (!cameraId) {
+                setStatus('camera', 'No active camera', 'warn');
+                setActionLabel('camera', 'Camera unavailable', true);
+                return;
+            }
+            fetch(`/iot/api/camera/status/${cameraId}/`, { credentials: 'same-origin' })
+                .then(response => response.json())
+                .then(data => {
+                    const isActive = Boolean(data.is_active) && data.status !== 'offline';
+                    state.camera.active = isActive;
+                    setStatus('camera', isActive ? 'Camera online' : 'Camera offline', isActive ? 'good' : 'bad');
+                    setActionLabel('camera', isActive ? 'Stop camera' : 'Start camera');
+                })
+                .catch(() => setStatus('camera', 'Status unavailable', 'bad'));
+        }
+
+        function refreshActuators() {
+            fetch('/iot/api/actuators/', { credentials: 'same-origin' })
+                .then(response => response.json())
+                .then(data => {
+                    const items = Array.isArray(data) ? data : (data.results || []);
+                    const door = items.find(item => item.actuator_type === 'door');
+                    const light = items.find(item => item.actuator_type === 'light');
+
+                    if (door) {
+                        state.door.id = door.id;
+                        state.door.current = door.current_state;
+                        const doorOpen = door.current_state === 'open';
+                        setStatus('door', doorOpen ? 'Door open' : 'Door closed', doorOpen ? 'warn' : 'good');
+                        setActionLabel('door', doorOpen ? 'Close door' : 'Open door');
+                    } else {
+                        setStatus('door', 'Door actuator missing', 'bad');
+                        setActionLabel('door', 'Unavailable', true);
+                    }
+
+                    if (light) {
+                        state.light.id = light.id;
+                        state.light.current = light.current_state;
+                        const lightOn = light.current_state === 'on';
+                        setStatus('light', lightOn ? 'Light on' : 'Light off', lightOn ? 'good' : 'warn');
+                        setActionLabel('light', lightOn ? 'Turn off' : 'Turn on');
+                    } else {
+                        setStatus('light', 'Light actuator missing', 'bad');
+                        setActionLabel('light', 'Unavailable', true);
+                    }
+                })
+                .catch(() => {
+                    setStatus('door', 'Status unavailable', 'bad');
+                    setStatus('light', 'Status unavailable', 'bad');
+                });
+        }
+
+        function refreshStatuses(control) {
+            if (!control || control === 'feeder') refreshFeeder();
+            if (!control || control === 'camera') refreshCamera();
+            if (!control || control === 'door' || control === 'light') refreshActuators();
+        }
+
+        const feederBtn = document.querySelector('[data-action="feeder-toggle"]');
+        if (feederBtn) {
+            feederBtn.addEventListener('click', () => {
+                postJson('/feeding/api/config/toggle/', {})
+                    .then(data => {
+                        state.feeder.enabled = Boolean(data.is_enabled);
+                        refreshFeeder();
+                    })
+                    .catch(() => setStatus('feeder', 'Action failed', 'bad'));
+            });
+        }
+
+        const cameraBtn = document.querySelector('[data-action="camera-toggle"]');
+        if (cameraBtn) {
+            cameraBtn.addEventListener('click', () => {
+                if (!cameraId) return;
+                const url = state.camera.active ? `/iot/api/camera/stop/${cameraId}/` : `/iot/api/camera/start/${cameraId}/`;
+                postJson(url, {})
+                    .then(() => refreshCamera())
+                    .catch(() => setStatus('camera', 'Action failed', 'bad'));
+            });
+        }
+
+        const doorBtn = document.querySelector('[data-action="door-toggle"]');
+        if (doorBtn) {
+            doorBtn.addEventListener('click', () => {
+                if (!state.door.id) return;
+                const nextState = state.door.current === 'open' ? 'closed' : 'open';
+                postJson(`/iot/api/actuators/${state.door.id}/control/`, { state: nextState, triggered_by: currentUser })
+                    .then(data => {
+                        state.door.current = data.current_state || nextState;
+                        refreshActuators();
+                    })
+                    .catch(() => setStatus('door', 'Action failed', 'bad'));
+            });
+        }
+
+        const lightBtn = document.querySelector('[data-action="light-toggle"]');
+        if (lightBtn) {
+            lightBtn.addEventListener('click', () => {
+                if (!state.light.id) return;
+                const nextState = state.light.current === 'on' ? 'off' : 'on';
+                postJson(`/iot/api/actuators/${state.light.id}/control/`, { state: nextState, triggered_by: currentUser })
+                    .then(data => {
+                        state.light.current = data.current_state || nextState;
+                        refreshActuators();
+                    })
+                    .catch(() => setStatus('light', 'Action failed', 'bad'));
+            });
+        }
+
+        refreshStatuses();
+    })();
+</script>
+{% endblock %}

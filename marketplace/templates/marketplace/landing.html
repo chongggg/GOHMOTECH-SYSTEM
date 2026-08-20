@@ -1,0 +1,39 @@
+{% extends "marketplace/buyer_base.html" %}{% load static %}
+{% block title %}GoHMoTech Marketplace | Farm-Raised Goats{% endblock %}
+{% block content %}
+<section class="home-hero">
+  <div class="store-container hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow"><i class="bi bi-patch-check-fill"></i> Farm-raised. Record-backed.</span>
+      <h1>Find the right goat,<br><em>straight from the farm.</em></h1>
+      <p>Browse healthy goats with clear livestock information, talk directly with the farm, and arrange a convenient pickup—all in one trusted marketplace.</p>
+      <div class="hero-actions"><a class="button button-primary button-large" href="{% url 'marketplace:list' %}">Browse available goats <i class="bi bi-arrow-right"></i></a><a class="text-link" href="#how-it-works">See how it works <i class="bi bi-arrow-down"></i></a></div>
+      <div class="hero-proof"><div><strong>{{ available_count }}</strong><span>Available now</span></div><div><strong>100%</strong><span>Inventory linked</span></div><div><strong>Farm</strong><span>Direct pickup</span></div></div>
+    </div>
+    <div class="hero-visual">
+      {% with feature=featured_listings.0 %}
+      {% if feature and feature.display_image %}<img src="{{ feature.display_image.image.url }}" alt="Featured goat {{ feature.goat.goat_id }}">{% else %}<div class="hero-placeholder"><img class="hero-brand-logo" src="{% static 'images/gohmotech-logo.png' %}" alt="GoHMoTech logo"><span>Healthy goats from our farm</span></div>{% endif %}
+      {% if feature %}<a class="floating-product" href="{% url 'marketplace:detail' feature.pk %}"><span class="live-dot"></span><div><small>Featured goat</small><strong>{{ feature.goat.goat_id }} · {{ feature.goat.get_breed_display }}</strong></div><b>PHP {{ feature.price|floatformat:0 }}</b></a>{% endif %}
+      {% endwith %}
+    </div>
+  </div>
+</section>
+
+<section class="section store-container">
+  <div class="section-heading"><div><span class="section-kicker">Available livestock</span><h2>Goats ready for a new home</h2><p>Each listing comes directly from the farm’s existing livestock inventory.</p></div><a class="text-link" href="{% url 'marketplace:list' %}">View all goats <i class="bi bi-arrow-right"></i></a></div>
+  <div class="product-grid product-grid-featured">
+    {% for listing in featured_listings %}{% include "marketplace/product_card.html" %}{% empty %}<div class="empty-store"><i class="bi bi-house-heart"></i><h3>New goats are coming soon</h3><p>The farm has no published goats at the moment. Please check again later.</p></div>{% endfor %}
+  </div>
+</section>
+
+<section class="how-section" id="how-it-works"><div class="store-container"><div class="center-heading"><span class="section-kicker">Simple and transparent</span><h2>From browsing to farm pickup</h2><p>No complicated checkout and no delivery uncertainty.</p></div><div class="steps-grid">
+  <article><span>01</span><i class="bi bi-search"></i><h3>Browse verified goats</h3><p>Compare breed, age, weight, health, vaccination, and price information.</p></article>
+  <article><span>02</span><i class="bi bi-chat-dots"></i><h3>Talk with the farm</h3><p>Send a private inquiry and discuss the goat before making a decision.</p></article>
+  <article><span>03</span><i class="bi bi-calendar-check"></i><h3>Reserve and schedule</h3><p>Reserve your chosen goat and agree on a convenient pickup schedule.</p></article>
+  <article><span>04</span><i class="bi bi-truck-flatbed"></i><h3>Pick up at the farm</h3><p>Inspect the goat, complete payment manually, and take it home.</p></article>
+</div></div></section>
+
+<section class="section store-container"><div class="trust-panel"><div class="trust-copy"><span class="section-kicker light">Buy with confidence</span><h2>Livestock information you can verify</h2><p>GoHMoTech connects every marketplace listing to the farm’s real inventory record—not a duplicate sales profile.</p><a class="button button-light" href="{% url 'marketplace:list' %}">Explore the marketplace</a></div><div class="trust-grid"><div><i class="bi bi-heart-pulse"></i><h3>Health records</h3><p>Current health status and relevant observations from inventory.</p></div><div><i class="bi bi-shield-plus"></i><h3>Vaccination details</h3><p>See recorded vaccination status and latest vaccine information.</p></div><div><i class="bi bi-person-check"></i><h3>Direct communication</h3><p>Discuss condition, price, and pickup privately with the farm.</p></div><div><i class="bi bi-geo-alt"></i><h3>Safe farm pickup</h3><p>Confirm the goat in person before the sale is completed.</p></div></div></div></section>
+
+<section class="store-cta"><div class="store-container"><div><span class="eyebrow"><i class="bi bi-stars"></i> Start your search</span><h2>Your next goat may already be waiting.</h2><p>Browse available livestock and ask the farm anything before you reserve.</p></div><a class="button button-light button-large" href="{% url 'marketplace:list' %}">View marketplace <i class="bi bi-arrow-right"></i></a></div></section>
+{% endblock %}

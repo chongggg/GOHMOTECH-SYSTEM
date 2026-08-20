@@ -1,0 +1,172 @@
+{% extends 'base_modern.html' %}
+{% load static %}
+
+{% block title %}Camera Feed Test{% endblock %}
+{% block header_title %}Camera Feed Test{% endblock %}
+
+{% block extra_css %}
+    .camera-feed-img {
+        width: 100%;
+        max-width: 50rem;
+        border: 2px solid var(--border-color);
+        border-radius: var(--radius-md);
+        margin: var(--spacing-lg) 0;
+        background: var(--surface-secondary);
+    }
+    .test-status {
+        padding: var(--spacing-md);
+        margin: var(--spacing-md) 0;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+    }
+    .test-status.success {
+        background: var(--success-bg);
+        color: var(--success);
+        border-color: var(--success);
+    }
+    .test-status.error {
+        background: var(--danger-bg);
+        color: var(--danger);
+        border-color: var(--danger);
+    }
+    .test-status.info {
+        background: var(--info-bg);
+        color: var(--info-text);
+        border-color: var(--info);
+    }
+    .camera-info-grid {
+        display: grid;
+        gap: 0.5rem;
+        margin: var(--spacing-md) 0;
+    }
+    .camera-info-row {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .camera-info-row strong {
+        color: var(--text-primary);
+        min-width: 8rem;
+    }
+    .troubleshoot-list {
+        list-style: none;
+        padding: 0;
+        margin: var(--spacing-md) 0;
+    }
+    .troubleshoot-list li {
+        padding: 0.5rem 0;
+    }
+    .troubleshoot-list a {
+        color: var(--primary-600);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: color var(--transition-fast);
+    }
+    .troubleshoot-list a:hover {
+        color: var(--primary-700);
+        text-decoration: underline;
+    }
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-eyebrow">Development</div>
+        <h1>Camera Feed Test</h1>
+        <p class="page-subtitle">Test camera streaming and troubleshoot connectivity issues</p>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="card-header-custom">
+        <h5>Camera Information</h5>
+    </div>
+    <div class="camera-info-grid">
+        <div class="camera-info-row"><strong>Camera ID:</strong> <span>{{ camera.id }}</span></div>
+        <div class="camera-info-row"><strong>Name:</strong> <span>{{ camera.name }}</span></div>
+        <div class="camera-info-row"><strong>IP Address:</strong> <span>{{ camera.ip_address }}:{{ camera.port }}</span></div>
+        <div class="camera-info-row"><strong>Camera Type:</strong> <span>{{ camera.camera_type }}</span></div>
+        <div class="camera-info-row"><strong>Status:</strong> <span class="badge badge-secondary">{{ camera.status }}</span></div>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="card-header-custom">
+        <h5>Live Camera Feed</h5>
+    </div>
+    <div id="feed-status" class="test-status info">
+        Loading camera feed...
+    </div>
+
+    <img id="camera-feed"
+         class="camera-feed-img"
+         src="{% url 'iot:camera_feed' camera.id %}"
+         alt="Camera Feed"
+         onload="onFeedLoad()"
+         onerror="onFeedError()">
+</div>
+
+<div class="content-card">
+    <div class="card-header-custom">
+        <h5>Test Results</h5>
+    </div>
+    <div id="test-results"></div>
+</div>
+
+<div class="content-card">
+    <div class="card-header-custom">
+        <h5>Troubleshooting Links</h5>
+    </div>
+    <ul class="troubleshoot-list">
+        <li><a href="/iot/"><i class="bi bi-speedometer2"></i> Dashboard with Camera</a></li>
+        <li><a href="/iot/cameras/"><i class="bi bi-camera-video"></i> All Cameras List</a></li>
+        <li><a href="/ml/detection/"><i class="bi bi-eye"></i> ML Detection Feed</a></li>
+        <li><a href="/admin/iot/ipcamera/"><i class="bi bi-gear"></i> Admin Panel Cameras</a></li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function onFeedLoad() {
+        document.getElementById('feed-status').className = 'test-status success';
+        document.getElementById('feed-status').innerHTML = '<i class="bi bi-check-circle"></i> Camera feed loaded successfully!';
+
+        const results = document.getElementById('test-results');
+        results.innerHTML = '<div class="test-status success"><strong><i class="bi bi-check-circle"></i> SUCCESS:</strong> Camera is streaming correctly!</div>';
+    }
+
+    function onFeedError() {
+        document.getElementById('feed-status').className = 'test-status error';
+        document.getElementById('feed-status').innerHTML = '<i class="bi bi-x-circle"></i> Failed to load camera feed';
+
+        const results = document.getElementById('test-results');
+        results.innerHTML = `
+            <div class="test-status error">
+                <strong><i class="bi bi-x-circle"></i> ERROR:</strong> Camera feed failed to load<br><br>
+                <strong>Possible causes:</strong>
+                <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                    <li>Camera is offline or unreachable</li>
+                    <li>RTSP URL is incorrect</li>
+                    <li>Network connectivity issue</li>
+                    <li>Django server camera streaming not started</li>
+                </ul>
+                <strong>What to check:</strong>
+                <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                    <li>Verify camera IP: {{ camera.ip_address }}</li>
+                    <li>Test RTSP URL in VLC: {{ camera.get_stream_url }}</li>
+                    <li>Check server console for errors</li>
+                    <li>Try refreshing this page (Ctrl+F5)</li>
+                </ul>
+            </div>
+        `;
+    }
+
+    setTimeout(() => {
+        const img = document.getElementById('camera-feed');
+        if (!img.complete || img.naturalWidth === 0) {
+        }
+    }, 5000);
+</script>
+{% endblock %}
