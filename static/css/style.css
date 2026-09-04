@@ -881,7 +881,7 @@ a:hover {
    HERO BANNER
    ========================================= */
 .hero-banner {
-    background: rgba(59, 130, 246, 0.3) !important;
+    background: rgba(8, 51, 241, 0.822) !important;
     backdrop-filter: blur(20px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
     border: 1.5px solid rgba(255, 255, 255, 0.25) !important;

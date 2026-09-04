@@ -1,6 +1,72 @@
 {% extends "marketplace/buyer_base.html" %}
 {% block title %}Buyer Sign In | GoHMoTech{% endblock %}
-{% block content %}<section class="buyer-page"><div class="store-container"><div class="account-card"><span class="section-kicker">Welcome back</span><h1>Sign in to the marketplace</h1><p>Continue your inquiries, reservations, and farm pickup arrangements.</p>{% if form.errors %}<div class="alert alert-error">The email/username or password is incorrect. Please try again.</div>{% endif %}
-{% if google_oauth_configured %}<form method="post" action="{% url 'google_login' %}">{% csrf_token %}{% if redirect_field_value %}<input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">{% endif %}<button class="google-auth-button" type="submit"><i class="bi bi-google"></i> Continue with Google</button></form>{% else %}<button class="google-auth-button" type="button" disabled><i class="bi bi-google"></i> Continue with Google</button><small class="auth-config-note">Google sign-in will be available after OAuth credentials are configured.</small>{% endif %}
-<div class="auth-divider"><span>or use your password</span></div>
-<form method="post">{% csrf_token %}{{ form.as_p }}{% if redirect_field_value %}<input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">{% endif %}<button class="button button-primary detail-action" type="submit">Sign in <i class="bi bi-arrow-right"></i></button></form><p style="text-align:center;margin:20px 0 0">New to the marketplace? <a class="text-link" style="display:inline" href="{% url 'marketplace:register' %}">Create an account</a></p></div></div></section>{% endblock %}
+{% block extra_head %}
+<style>
+  .market-login-page{min-height:calc(100vh - 70px);min-height:calc(100dvh - 70px);display:grid;align-items:center;padding-block:clamp(30px,6vw,68px)}
+  .market-login-page .store-container{width:100%;min-width:0}
+  .market-login-card{width:min(100%,560px);min-width:0}
+  .market-login-card h1{overflow-wrap:anywhere}
+  .market-login-copy{margin:0 0 24px;line-height:1.65}
+  .market-login-google{min-width:0}
+  .market-login-form{display:grid;gap:16px;min-width:0}
+  .market-login-form>p{min-width:0;margin:0}
+  .market-login-form label{display:block;margin-bottom:7px;color:var(--ink);font-size:13px;font-weight:700}
+  .market-login-form input{width:100%;min-width:0;min-height:50px;margin:0;font-size:16px}
+  .market-login-form .errorlist{margin:0 0 7px;padding:10px 12px;border:1px solid #f1cbc7;border-radius:10px;background:#fff0ee;color:#9f302b;list-style:none;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+  .market-login-form .helptext{display:block;margin-top:6px;line-height:1.5;overflow-wrap:anywhere}
+  .market-login-submit{width:100%;min-height:50px;margin-top:2px}
+  .market-login-secondary{margin:20px 0 0;text-align:center;line-height:1.6}
+  .market-login-secondary .text-link{display:inline}
+  @media(max-width:560px){
+    .market-login-page{min-height:auto;align-items:start;padding:22px 0 46px}
+    .market-login-card{padding:22px 17px;border-radius:17px}
+    .market-login-card h1{font-size:clamp(25px,8vw,31px);line-height:1.15}
+    .market-login-copy{margin-bottom:20px;font-size:13px}
+    .market-login-card .google-auth-button{height:auto;min-height:50px;padding:10px 12px}
+    .market-login-card .auth-divider{margin-block:18px}
+    .market-login-form{gap:14px}
+    .market-login-secondary{margin-top:17px;font-size:13px}
+  }
+  @media(max-width:360px){
+    .market-login-page{padding-top:14px}
+    .market-login-card{padding:20px 14px}
+    .market-login-card h1{font-size:24px}
+  }
+</style>
+{% endblock %}
+{% block content %}
+<section class="buyer-page market-login-page">
+  <div class="store-container">
+    <div class="account-card market-login-card">
+      <span class="section-kicker">Welcome back</span>
+      <h1>Sign in to the marketplace</h1>
+      <p class="market-login-copy">Continue your inquiries, reservations, and farm pickup arrangements.</p>
+
+      {% if form.errors %}
+        <div class="alert alert-error" role="alert">The email/username or password is incorrect. Please try again.</div>
+      {% endif %}
+
+      {% if google_oauth_configured %}
+        <form class="market-login-google" method="post" action="{% url 'google_login' %}">
+          {% csrf_token %}
+          {% if redirect_field_value %}<input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">{% endif %}
+          <button class="google-auth-button" type="submit"><i class="bi bi-google"></i> Continue with Google</button>
+        </form>
+      {% else %}
+        <button class="google-auth-button" type="button" disabled><i class="bi bi-google"></i> Continue with Google</button>
+        <small class="auth-config-note">Google sign-in will be available after OAuth credentials are configured.</small>
+      {% endif %}
+
+      <div class="auth-divider"><span>or use your password</span></div>
+
+      <form class="market-login-form" method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        {% if redirect_field_value %}<input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">{% endif %}
+        <button class="button button-primary detail-action market-login-submit" type="submit">Sign in <i class="bi bi-arrow-right"></i></button>
+      </form>
+      <p class="market-login-secondary">New to the marketplace? <a class="text-link" href="{% url 'marketplace:register' %}">Create an account</a></p>
+    </div>
+  </div>
+</section>
+{% endblock %}

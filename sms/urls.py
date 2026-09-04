@@ -12,6 +12,8 @@ router.register(r'logs', views.SmsLogViewSet, basename='smslog')
 app_name = 'sms'
 
 urlpatterns = [
+    # Self-service mobile registration for authenticated owners and clients.
+    path('registration/', views.sms_registration, name='registration'),
     # Tabbed SMS page.
     path('', views.sms_dashboard, name='dashboard'),
     # Singleton settings + operator actions.

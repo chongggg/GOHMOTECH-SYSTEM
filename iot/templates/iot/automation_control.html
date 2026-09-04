@@ -5,7 +5,36 @@
 {% block header_title %}Automation{% endblock %}
 
 {% block extra_css %}
-<style>
+    .automation-page { width: 100%; min-width: 0; overflow-x: clip; }
+    .automation-page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--spacing-lg);
+        margin-bottom: var(--spacing-lg);
+    }
+    .automation-page-header > div:first-child { min-width: 0; }
+    .automation-page-header .page-eyebrow {
+        color: var(--primary-600);
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+    .automation-page-header .page-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: .65rem;
+        flex-wrap: wrap;
+    }
+    .automation-page .page-section { padding-inline: 0; }
+    .automation-page .content-card,
+    .automation-page .actuator-card,
+    .automation-page [class*="col-"] { min-width: 0; }
+    .automation-stats { margin-bottom: var(--spacing-lg) !important; }
+    .automation-stats .stat-card { min-width: 0; margin-bottom: 0; }
+
     /* ---- Controller status banner --------------------------------------- */
     .ctrl-banner {
         display: flex;
@@ -75,7 +104,6 @@
     .dev-chip.offline .dot { background: var(--warning); }
 
     .control-buttons { display: flex; gap: 10px; margin-top: 1rem; }
-    @media (max-width: 768px) { .control-buttons { flex-direction: column; } }
 
     /* Inline command-status line (honest: "sent" / "queued" / "failed") */
     .aac-status { display: none; margin-top: .85rem; padding: .6rem .8rem; border-radius: var(--radius-md); font-size: .82rem; line-height: 1.35; border: 1px solid transparent; }
@@ -99,16 +127,68 @@
     /* Schedule / rule rows (token-based so dark mode works) */
     .auto-row { background: var(--card-bg-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: .6rem .75rem; margin-bottom: .55rem; }
     .auto-row.inactive { opacity: .55; }
+    .auto-row > .d-flex { min-width: 0; gap: .65rem; }
+    .auto-row > .d-flex > div:first-child { min-width: 0; overflow-wrap: anywhere; }
 
     /* Auto-refresh chip in the page actions row */
     .refresh-chip { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 600; padding: 5px 12px; border-radius: var(--radius-full); background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
-</style>
+
+    @media (max-width: 768px) {
+        .automation-page-header {
+            align-items: stretch;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+        .automation-page-header .page-actions { justify-content: stretch; }
+        .automation-page-header .page-actions > * { flex: 1 1 auto; justify-content: center; }
+        .automation-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .75rem;
+        }
+        .automation-stats .stat-card { padding: .9rem; }
+        .automation-stats .stat-icon { margin-bottom: .6rem; }
+        .automation-stats .stat-value { margin-bottom: .3rem; }
+        .automation-page .row > [class*="col-"] { margin-bottom: 0; }
+        .automation-page .content-card { margin-bottom: var(--spacing-md); }
+        .automation-page .card-header-custom {
+            align-items: stretch !important;
+            flex-direction: column;
+            gap: .75rem;
+        }
+        .automation-page .card-header-custom .btn { width: 100%; justify-content: center; }
+        .actuator-card { height: auto; padding: 1rem; }
+        .actuator-header { align-items: flex-start; gap: .75rem; }
+        .actuator-header > .d-flex { min-width: 0; }
+        .actuator-header > .d-flex > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+        .actuator-icon { width: 42px; height: 42px; margin-right: 10px; flex: 0 0 auto; }
+        .control-buttons { flex-direction: column; }
+        .control-buttons .btn { width: 100%; min-height: 44px; justify-content: center; }
+        .auto-row > .d-flex { align-items: flex-start !important; flex-direction: column; }
+        .auto-row > .d-flex > .d-flex:last-child { align-self: flex-end; }
+        .confirm-note { padding: .85rem; }
+        .automation-page .table-responsive { max-width: 100%; }
+        .automation-page .table-responsive table { min-width: 680px; }
+    }
+
+    @media (max-width: 420px) {
+        .automation-stats { gap: .6rem; }
+        .automation-stats .stat-card { padding: .75rem; }
+        .automation-stats .stat-icon { width: 2.2rem; height: 2.2rem; }
+        .automation-stats .stat-label { font-size: .7rem; }
+        .automation-stats .stat-value { font-size: 1.35rem; }
+        .automation-stats .stat-meta { font-size: .68rem; overflow-wrap: anywhere; }
+        .ctrl-banner { padding: .8rem; }
+        .actuator-header { flex-wrap: wrap; }
+        .actuator-header > .text-end { width: 100%; text-align: left !important; }
+    }
 {% endblock %}
 
 {% block content %}
 
+<div class="automation-page">
+
     <!-- Intro row: subtitle + auto-refresh indicator -->
-    <div class="page-header">
+    <div class="page-header automation-page-header">
         <div>
             <div class="page-eyebrow">Device Control</div>
             <p class="page-subtitle mb-0">Door, lighting and feeder control for the goat-house ESP32 controller.</p>
@@ -160,7 +240,7 @@
     {% endif %}
 
     <!-- Today's command activity (honest counts) -->
-    <div class="stat-grid mb-4">
+    <div class="stat-grid mb-4 automation-stats">
         <div class="stat-card">
             <div class="stat-icon blue"><i class="bi bi-send"></i></div>
             <div class="stat-label">Sent to device today</div>
@@ -659,6 +739,8 @@
             </div>
         </div>
     </div>
+
+</div>
 
 {% endblock %}
 

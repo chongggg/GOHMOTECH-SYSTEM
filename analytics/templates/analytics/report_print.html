@@ -54,9 +54,23 @@
         }
         .p-actions button.secondary { background: #6b7280; }
 
+        .p-table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+        @media screen and (max-width: 640px) {
+            body { padding: 14px; }
+            .p-title { font-size: 19px; overflow-wrap: anywhere; }
+            .p-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+            .p-actions button { width: 100%; min-height: 44px; margin: 0; }
+            .p-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .p-kpi { min-width: 0; padding: 8px 10px; }
+            .p-meta { display: grid; grid-template-columns: 1fr; gap: 5px; }
+            table { min-width: 640px; }
+        }
+
         @media print {
             body { padding: 0; }
             .p-actions { display: none; }
+            .p-table-wrap { overflow: visible; }
             thead { display: table-header-group; }
             tr { break-inside: avoid; }
         }
@@ -102,16 +116,18 @@
 
     <div class="p-section">Detailed Data ({{ report.rows|length }} row{{ report.rows|length|pluralize }})</div>
     {% if report.rows %}
-    <table>
-        <thead>
-            <tr>{% for col in report.columns %}<th>{{ col }}</th>{% endfor %}</tr>
-        </thead>
-        <tbody>
-            {% for row in report.rows %}
-            <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="p-table-wrap">
+        <table>
+            <thead>
+                <tr>{% for col in report.columns %}<th>{{ col }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+                {% for row in report.rows %}
+                <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
     <p>No data available for this selection.</p>
     {% endif %}

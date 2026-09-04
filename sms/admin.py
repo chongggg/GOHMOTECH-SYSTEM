@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import SmsLog, SmsReminder, SmsSettings
+from .models import SmsLog, SmsRegistration, SmsReminder, SmsSettings
 
 
 @admin.register(SmsSettings)
@@ -25,6 +25,14 @@ class SmsReminderAdmin(admin.ModelAdmin):
                     'created_at')
     list_filter = ('reminder_type', 'is_active')
     search_fields = ('title', 'message')
+
+
+@admin.register(SmsRegistration)
+class SmsRegistrationAdmin(admin.ModelAdmin):
+    list_display = ('user', 'phone_number', 'is_active', 'registered_at', 'updated_at')
+    list_filter = ('is_active', 'registered_at')
+    search_fields = ('user__username', 'user__email', 'phone_number')
+    readonly_fields = ('registered_at', 'updated_at')
 
 
 @admin.register(SmsLog)

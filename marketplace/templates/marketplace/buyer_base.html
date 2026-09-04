@@ -33,6 +33,7 @@
               <a href="{% url 'marketplace:saved_goats' %}"><i class="bi bi-heart"></i> Saved Goats</a>
               <a href="{% url 'marketplace:my_inquiries' %}"><i class="bi bi-chat-dots"></i> My Inquiries</a>
               <a href="{% url 'marketplace:buyer_reservations' %}"><i class="bi bi-bookmark-check"></i> My Reservations</a>
+              <a href="{% url 'sms:registration' %}"><i class="bi bi-phone"></i> SMS Registration</a>
               <a href="{% url 'marketplace:support_center' %}"><i class="bi bi-headset"></i> Customer Service</a>
               {% if is_approved_seller %}
                 <span class="desktop-account-menu-label">Seller tools</span>
@@ -48,9 +49,10 @@
         <div class="mobile-nav-actions">
           {% if user.is_authenticated %}
             <span class="mobile-nav-user"><i class="bi bi-person-circle"></i><span>Signed in as <strong>{{ user.first_name|default:user.username }}</strong></span></span>
+            {% if has_farm_access %}<a href="{% if is_system_admin %}{% url 'iot:dashboard' %}{% else %}{% url 'iot:owner_dashboard' %}{% endif %}"><i class="bi bi-arrow-left-circle"></i> Back to Dashboard</a>{% endif %}
             <a href="{% url 'marketplace:notifications' %}"><i class="bi bi-bell"></i> Notifications{% if marketplace_unread_notification_count %} ({{ marketplace_unread_notification_count }}){% endif %}</a>
             {% if user.is_staff %}<a href="{% url 'marketplace:admin_dashboard' %}"><i class="bi bi-gear"></i> Manage Marketplace</a><a href="{% url 'marketplace:registered_users_admin' %}"><i class="bi bi-people"></i> Registered Users</a><a href="{% url 'marketplace:admin_support_tickets' %}"><i class="bi bi-headset"></i> Customer Service</a>{% else %}<a href="{% url 'marketplace:support_center' %}"><i class="bi bi-headset"></i> Customer Service</a>{% endif %}
-            {% if not user.is_staff %}<a href="{% url 'marketplace:saved_goats' %}"><i class="bi bi-heart"></i> Saved Goats</a><a href="{% url 'marketplace:buyer_reservations' %}"><i class="bi bi-bookmark-check"></i> My Reservations</a><a href="{% url 'marketplace:buyer_purchase_history' %}"><i class="bi bi-clock-history"></i> Purchase History</a>{% if is_approved_seller %}<a href="{% url 'marketplace:seller_dashboard' %}"><i class="bi bi-shop"></i> Seller Dashboard</a><a href="{% url 'marketplace:seller_messages' %}"><i class="bi bi-chat-dots"></i> Seller Messages</a><a href="{% url 'marketplace:seller_reservations' %}"><i class="bi bi-calendar-check"></i> Seller Reservations</a>{% else %}<a href="{% url 'marketplace:seller_application' %}"><i class="bi bi-patch-check"></i> {% if seller_profile %}Seller Application{% else %}Become a Seller{% endif %}</a>{% endif %}{% endif %}
+            {% if not user.is_staff %}<a href="{% url 'marketplace:saved_goats' %}"><i class="bi bi-heart"></i> Saved Goats</a><a href="{% url 'marketplace:buyer_reservations' %}"><i class="bi bi-bookmark-check"></i> My Reservations</a><a href="{% url 'marketplace:buyer_purchase_history' %}"><i class="bi bi-clock-history"></i> Purchase History</a><a href="{% url 'sms:registration' %}"><i class="bi bi-phone"></i> SMS Registration</a>{% if is_approved_seller %}<a href="{% url 'marketplace:seller_dashboard' %}"><i class="bi bi-shop"></i> Seller Dashboard</a><a href="{% url 'marketplace:seller_messages' %}"><i class="bi bi-chat-dots"></i> Seller Messages</a><a href="{% url 'marketplace:seller_reservations' %}"><i class="bi bi-calendar-check"></i> Seller Reservations</a>{% else %}<a href="{% url 'marketplace:seller_application' %}"><i class="bi bi-patch-check"></i> {% if seller_profile %}Seller Application{% else %}Become a Seller{% endif %}</a>{% endif %}{% endif %}
             <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit"><i class="bi bi-box-arrow-right"></i> Log out</button></form>
           {% else %}
             <a href="{% url 'marketplace:buyer_login' %}?next={% url 'marketplace:list' %}"><i class="bi bi-box-arrow-in-right"></i> Sign in</a>
@@ -60,6 +62,7 @@
       </nav>
       <div class="nav-actions">
         {% if user.is_authenticated %}
+          {% if has_farm_access %}<a class="button button-ghost button-small" href="{% if is_system_admin %}{% url 'iot:dashboard' %}{% else %}{% url 'iot:owner_dashboard' %}{% endif %}"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>{% endif %}
           {% if user.is_staff %}<a class="button button-ghost button-small" href="{% url 'marketplace:admin_dashboard' %}">Manage</a>{% endif %}
           <a class="notification-nav-button" href="{% url 'marketplace:notifications' %}" aria-label="Marketplace notifications"><i class="bi bi-bell"></i>{% if marketplace_unread_notification_count %}<span>{{ marketplace_unread_notification_count }}</span>{% endif %}</a>
           <span class="nav-user"><i class="bi bi-person-circle"></i> {{ user.first_name|default:user.username }}</span>

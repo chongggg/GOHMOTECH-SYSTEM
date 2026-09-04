@@ -1,7 +1,7 @@
 """
 SMS subsystem models.
 
-Three tables, all additive — nothing here changes or replaces an existing model:
+Four tables, all additive — nothing here changes or replaces an existing model:
 
   * SmsSettings — operator-editable singleton of toggles/schedules. Lives in the
     DB (not settings/.env) because the Celery worker/beat process must read the
@@ -16,6 +16,11 @@ Three tables, all additive — nothing here changes or replaces an existing mode
     reuses the exact every-minute beat-matching logic proven by
     iot.tasks.execute_scheduled_feeding.
 
+  * SmsRegistration — one private mobile-number registration per authenticated
+    account. This is separate from the administrator's global recipient so
+    owners and marketplace clients can manage their own contact details without
+    changing system-wide alert delivery.
+
   * SmsLog — history of every send attempt. Field names follow
     iot.NotificationLog (recipient / message / status / error_message /
     sent_at) for consistency, adding the sms_type dimension and the raw
@@ -27,6 +32,8 @@ Three tables, all additive — nothing here changes or replaces an existing mode
 
 from datetime import time
 
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -139,6 +146,45 @@ class SmsReminder(models.Model):
 
     def __str__(self):
         return f"{self.get_reminder_type_display()} - {self.title} @ {self.schedule_time}"
+
+
+class SmsRegistration(models.Model):
+    """A user's private, self-managed Philippine mobile number."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='sms_registration',
+    )
+    phone_number = models.CharField(
+        max_length=20,
+        help_text="Philippine mobile number, e.g. 09171234567 or +639171234567",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Allow this number to be used by account-related SMS features.",
+    )
+    registered_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'SMS Registration'
+        verbose_name_plural = 'SMS Registrations'
+
+    def clean(self):
+        super().clean()
+        if not self.phone_number:
+            return
+        from .providers import normalize_ph_number
+
+        try:
+            self.phone_number = normalize_ph_number(self.phone_number)
+        except ValueError as exc:
+            raise ValidationError({'phone_number': str(exc)}) from exc
+
+    def __str__(self):
+        status = 'active' if self.is_active else 'paused'
+        return f"{self.user.get_username()} — {self.phone_number} ({status})"
 
 
 class SmsLog(models.Model):

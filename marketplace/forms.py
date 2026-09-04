@@ -8,6 +8,8 @@ from django.utils import timezone
 from PIL import Image
 
 from iot.models import Goat
+from sms.models import SmsRegistration
+from sms.providers import normalize_ph_number
 
 from .image_utils import optimize_marketplace_image
 from .auth import is_marketplace_user
@@ -27,17 +29,41 @@ class MarketplaceSignupForm(forms.Form):
     """Additional name fields for allauth's email-first signup form."""
     first_name = forms.CharField(max_length=150, required=True)
     last_name = forms.CharField(max_length=150, required=True)
+    sms_phone_number = forms.CharField(
+        max_length=20,
+        required=False,
+        label="Mobile number for SMS (optional)",
+        help_text="Philippine mobile number, e.g. 09171234567 or +639171234567.",
+        widget=forms.TextInput(attrs={"inputmode": "tel", "autocomplete": "tel"}),
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
             field.widget.attrs.setdefault("class", "form-control")
-            field.widget.attrs.setdefault("autocomplete", "name")
+            field.widget.attrs.setdefault(
+                "autocomplete", "tel" if name == "sms_phone_number" else "name"
+            )
+
+    def clean_sms_phone_number(self):
+        number = self.cleaned_data.get("sms_phone_number", "").strip()
+        if not number:
+            return ""
+        try:
+            return normalize_ph_number(number)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
 
     def signup(self, request, user):
         user.first_name = self.cleaned_data["first_name"].strip()
         user.last_name = self.cleaned_data["last_name"].strip()
         user.save(update_fields=["first_name", "last_name"])
+        phone_number = self.cleaned_data.get("sms_phone_number")
+        if phone_number:
+            SmsRegistration.objects.update_or_create(
+                user=user,
+                defaults={"phone_number": phone_number, "is_active": True},
+            )
 
 
 class ProfileCompletionForm(forms.Form):

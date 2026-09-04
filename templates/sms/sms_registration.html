@@ -1,0 +1,44 @@
+{% extends base_template %}
+{% block title %}SMS Registration | GoHMoTech{% endblock %}
+{% block header_title %}SMS Registration{% endblock %}
+{% block content %}
+<style>
+  .sms-registration-page{max-width:760px;margin:0 auto;padding:28px 0 55px}
+  .sms-registration-card{background:var(--card-bg,#fff);border:1px solid var(--border-color,#dfe6e1);border-radius:18px;padding:28px;box-shadow:0 12px 30px rgba(25,55,39,.08)}
+  .sms-registration-icon{width:52px;height:52px;border-radius:15px;display:grid;place-items:center;background:#e7f2e9;color:#1d6741;font-size:24px;margin-bottom:17px}
+  .sms-registration-card h1{font-size:clamp(1.6rem,4vw,2.1rem);margin:0 0 8px}
+  .sms-registration-card>p{color:var(--text-secondary,#66736b);margin-bottom:24px}
+  .sms-registration-form p{margin-bottom:18px}
+  .sms-registration-form label{display:block;font-weight:700;margin-bottom:7px}
+  .sms-registration-form input[type=text]{width:100%;min-height:48px;border:1px solid var(--border-color,#ccd7cf);border-radius:11px;padding:11px 13px;background:var(--card-bg,#fff);color:inherit}
+  .sms-registration-form input[type=checkbox]{width:18px;height:18px;margin-right:7px;vertical-align:-3px}
+  .sms-registration-form .helptext{display:block;color:var(--text-secondary,#6b756f);font-size:.85rem;margin-top:6px}
+  .sms-registration-form .errorlist{color:#a52b2b;margin:6px 0;padding-left:20px}
+  .sms-registration-actions{display:flex;align-items:center;gap:12px;margin-top:24px}
+  .sms-save-button{border:0;border-radius:11px;background:#1d6741;color:#fff;font-weight:700;padding:12px 18px;cursor:pointer}
+  .sms-status{margin:18px 0 0;padding:12px 14px;border-radius:10px;background:#f2f6f3;color:#405047}
+  .sms-notice{display:flex;gap:10px;margin-top:22px;padding:14px;border-radius:11px;background:#fff7dd;color:#725316;font-size:.9rem}
+  @media(max-width:560px){.sms-registration-page{padding:20px 0 40px}.sms-registration-card{padding:21px 17px}}
+</style>
+<section class="sms-registration-page">
+  <div class="sms-registration-card">
+    <div class="sms-registration-icon"><i class="bi bi-phone"></i></div>
+    <h1>Register your mobile number</h1>
+    <p>Keep a private Philippine mobile number on your GoHMoTech account. You can update it or pause SMS access at any time.</p>
+    {% if messages %}
+      {% for message in messages %}<div class="alert alert-{{ message.tags|default:'success' }}" role="alert">{{ message }}</div>{% endfor %}
+    {% endif %}
+    <form class="sms-registration-form" method="post" novalidate>
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="sms-registration-actions">
+        <button class="sms-save-button" type="submit"><i class="bi bi-check2-circle"></i> Save SMS registration</button>
+      </div>
+    </form>
+    {% if registration %}
+      <div class="sms-status"><strong>Current status:</strong> {% if registration.is_active %}Active{% else %}Paused{% endif %} · Last updated {{ registration.updated_at|date:"M j, Y g:i A" }}</div>
+    {% endif %}
+    <div class="sms-notice"><i class="bi bi-shield-lock"></i><span>Your mobile number is private. SMS delivery depends on the administrator's system-wide provider and notification settings.</span></div>
+  </div>
+</section>
+{% endblock %}

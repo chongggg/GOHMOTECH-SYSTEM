@@ -14,7 +14,27 @@
     /* Fill the full available width so no blank gap sits on the right.
        (The page shell is full-width; the old fixed max-width left the
        content pinned to the left with dead space beside it.) */
-    .inv-page { width: 100%; }
+    .inv-page { width: 100%; min-width: 0; overflow-x: clip; }
+
+    /* Page heading */
+    .inv-page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--spacing-lg);
+        margin-bottom: var(--spacing-xl);
+    }
+    .inv-page-header > div:first-child { min-width: 0; }
+    .inv-page-header h1 { margin: 0.2rem 0 0.35rem; color: var(--text-primary); }
+    .inv-page-header .page-eyebrow {
+        color: var(--primary-600);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .inv-page-header .page-subtitle { margin: 0; color: var(--text-secondary); }
+    .inv-page-header .page-actions { flex: 0 0 auto; }
 
     /* Touch-friendly controls for farmers/caretakers */
     .inv-page .btn { min-height: 46px; display: inline-flex; align-items: center; gap: 0.45rem; }
@@ -22,7 +42,13 @@
     .inv-page .form-select,
     .inv-page .form-control { min-height: 46px; font-size: 1rem; }
 
+    /* Summary cards stay aligned and do not inherit mobile card margins. */
+    .inv-stat-grid { margin-bottom: var(--spacing-xl); }
+    .inv-stat-grid .stat-card { min-width: 0; margin-bottom: 0; }
+
     /* Filter bar */
+    .inv-filter { padding: var(--spacing-lg); }
+    .inv-filter [class*="col-"] { margin-bottom: 0; }
     .inv-filter .form-label {
         font-size: 0.8rem;
         font-weight: 600;
@@ -39,6 +65,7 @@
         gap: var(--spacing-lg);
     }
     .goat-card-modern {
+        min-width: 0;
         background: var(--card-bg);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-lg);
@@ -54,7 +81,8 @@
         box-shadow: var(--shadow-md);
         border-color: var(--primary-500);
     }
-    .goat-card-top { display: flex; align-items: center; gap: var(--spacing-md); }
+    .goat-card-top { display: flex; align-items: center; gap: var(--spacing-md); min-width: 0; }
+    .goat-card-top > div:last-child { min-width: 0; }
     .goat-avatar {
         width: 64px;
         height: 64px;
@@ -86,6 +114,7 @@
         gap: 0.5rem;
         flex-wrap: wrap;
         margin-bottom: 0.35rem;
+        overflow-wrap: anywhere;
     }
     .goat-card-meta {
         display: flex;
@@ -94,7 +123,13 @@
         font-size: 0.875rem;
         color: var(--text-secondary);
     }
-    .goat-card-meta .meta-row { display: flex; align-items: center; gap: 0.5rem; }
+    .goat-card-meta .meta-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
     .goat-card-meta .meta-row i { color: var(--text-tertiary); width: 1rem; text-align: center; }
     .goat-card-footer {
         display: flex;
@@ -149,10 +184,47 @@
     @keyframes invSpin { to { transform: rotate(360deg); } }
 
     /* Responsive */
-    @media (max-width: 640px) {
-        .goat-grid { grid-template-columns: 1fr; }
+    @media (max-width: 768px) {
+        .inv-page-header {
+            align-items: stretch;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+        .inv-page-header .page-actions,
+        .inv-page-header .page-actions .btn { width: 100%; }
+        .inv-page-header .page-actions .btn { justify-content: center; }
+        .inv-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-bottom: var(--spacing-lg);
+        }
+        .inv-stat-grid .stat-card { padding: 0.9rem; }
+        .inv-stat-grid .stat-icon { margin-bottom: 0.6rem; }
+        .inv-stat-grid .stat-label { margin-bottom: 0.3rem; }
+        .inv-stat-grid .stat-value { margin-bottom: 0; }
+        .inv-filter {
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-lg) !important;
+        }
+        .inv-filter .row { --bs-gutter-y: 0.85rem; }
+        .goat-grid { grid-template-columns: minmax(0, 1fr); gap: var(--spacing-md); }
+        .goat-card-modern { padding: var(--spacing-md); }
         .goat-card-footer { flex-direction: column; align-items: stretch; }
         .goat-card-footer .btn { width: 100%; justify-content: center; }
+    }
+
+    @media (max-width: 420px) {
+        .inv-stat-grid { gap: 0.6rem; }
+        .inv-stat-grid .stat-card { padding: 0.75rem; }
+        .inv-stat-grid .stat-icon { width: 2.2rem; height: 2.2rem; }
+        .inv-stat-grid .stat-label { font-size: 0.7rem; }
+        .inv-stat-grid .stat-value { font-size: 1.35rem; }
+        .goat-card-top { align-items: flex-start; gap: 0.75rem; }
+        .goat-avatar,
+        .goat-avatar-placeholder { width: 52px; height: 52px; }
+        .goat-card-id { font-size: 1rem; }
+        .status-pill { padding: 0.25rem 0.55rem; font-size: 0.7rem; }
     }
 {% endblock %}
 
@@ -160,7 +232,7 @@
 <div class="inv-page">
 
     <!-- Page Header -->
-    <div class="page-header">
+    <div class="page-header inv-page-header">
         <div>
             <div class="page-eyebrow">Livestock</div>
             <h1>Goat Inventory</h1>
@@ -174,7 +246,7 @@
     </div>
 
     <!-- Statistics -->
-    <div class="stat-grid" style="margin-bottom: var(--spacing-xl);">
+    <div class="stat-grid inv-stat-grid">
         <div class="stat-card">
             <div class="stat-icon blue"><i class="bi bi-box-seam"></i></div>
             <p class="stat-label">Total Goats</p>

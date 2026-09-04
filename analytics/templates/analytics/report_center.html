@@ -9,7 +9,26 @@
        Report Center — page-scoped styles (all under .rc-page)
        Reuses global design tokens; adds no global rules.
        ============================================================ */
-    .rc-page { width: 100%; }
+    .rc-page { width: 100%; min-width: 0; overflow-x: clip; }
+    .rc-page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--spacing-lg);
+        margin-bottom: var(--spacing-xl);
+    }
+    .rc-page-header > div { min-width: 0; }
+    .rc-page-header h1 { margin: .2rem 0 .35rem; color: var(--text-primary); }
+    .rc-page-header .page-eyebrow {
+        color: var(--primary-600);
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+    .rc-page-header .page-subtitle { margin: 0; color: var(--text-secondary); }
+    .rc-stat-grid { margin-bottom: var(--spacing-md); }
+    .rc-stat-grid .stat-card { min-width: 0; margin-bottom: 0; }
 
     .rc-section-title {
         font-family: var(--font-heading, inherit);
@@ -36,6 +55,7 @@
         gap: var(--spacing-lg);
     }
     .rc-card {
+        min-width: 0;
         display: flex;
         flex-direction: column;
         gap: var(--spacing-md);
@@ -53,7 +73,7 @@
         box-shadow: var(--shadow-md);
         border-color: var(--primary-500);
     }
-    .rc-card-top { display: flex; align-items: center; gap: var(--spacing-md); }
+    .rc-card-top { display: flex; align-items: center; gap: var(--spacing-md); min-width: 0; }
     .rc-card-icon {
         width: 52px; height: 52px;
         border-radius: var(--radius-md);
@@ -65,12 +85,36 @@
     .rc-card-icon.yellow { background: var(--warning-bg); color: var(--warning); }
     .rc-card-icon.purple { background: rgba(139,92,246,0.14); color: #8b5cf6; }
     .rc-card-icon.red    { background: var(--danger-bg);  color: var(--danger); }
-    .rc-card-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
-    .rc-card-desc { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.45; }
+    .rc-card-title { min-width: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
+    .rc-card-desc { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.45; overflow-wrap: anywhere; }
     .rc-card-cta {
         margin-top: auto;
         font-size: 0.85rem; font-weight: 600; color: var(--primary-600, var(--primary-500));
         display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+
+    @media (max-width: 768px) {
+        .rc-page-header { margin-bottom: var(--spacing-lg); }
+        .rc-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .75rem;
+        }
+        .rc-stat-grid .stat-card { padding: .9rem; }
+        .rc-stat-grid .stat-icon { margin-bottom: .6rem; }
+        .rc-stat-grid .stat-label { margin-bottom: .3rem; }
+        .rc-stat-grid .stat-value { margin-bottom: 0; }
+        .rc-section-title { margin-top: var(--spacing-lg); }
+        .rc-grid { grid-template-columns: minmax(0, 1fr); gap: var(--spacing-md); }
+        .rc-card { padding: var(--spacing-md); }
+    }
+
+    @media (max-width: 420px) {
+        .rc-stat-grid { gap: .6rem; }
+        .rc-stat-grid .stat-card { padding: .75rem; }
+        .rc-stat-grid .stat-icon { width: 2.2rem; height: 2.2rem; }
+        .rc-stat-grid .stat-label { font-size: .7rem; }
+        .rc-stat-grid .stat-value { font-size: 1.35rem; }
+        .rc-card-icon { width: 44px; height: 44px; font-size: 1.25rem; }
     }
 {% endblock %}
 
@@ -78,7 +122,7 @@
 <div class="rc-page">
 
     <!-- Page Header -->
-    <div class="page-header">
+    <div class="page-header rc-page-header">
         <div>
             <div class="page-eyebrow">Reports</div>
             <h1>Report Center</h1>
@@ -87,7 +131,7 @@
     </div>
 
     <!-- Summary (last 7 days for activity counts; herd counts are current) -->
-    <div class="stat-grid" style="margin-bottom: var(--spacing-md);">
+    <div class="stat-grid rc-stat-grid">
         {% for card in summary %}
         <div class="stat-card">
             <div class="stat-icon {{ card.color }}"><i class="bi {{ card.icon }}"></i></div>

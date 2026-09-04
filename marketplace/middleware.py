@@ -5,6 +5,10 @@ from django.shortcuts import redirect
 
 from .auth import has_farm_access, is_farm_operator
 
+# Keep the slashless form too so CommonMiddleware can issue its normal
+# APPEND_SLASH redirect instead of role middleware returning a misleading 403.
+SMS_REGISTRATION_PREFIX = "/sms/registration"
+
 
 class FarmRoleAccessMiddleware:
     """Defence-in-depth route policy for the shared farm modules."""
@@ -38,6 +42,11 @@ class FarmRoleAccessMiddleware:
     def __call__(self, request):
         user = request.user
         if not user.is_authenticated:
+            return self.get_response(request)
+
+        # The account-owned number page is intentionally separate from the
+        # administrator-only SMS settings, logs, reminders, and provider APIs.
+        if request.path.startswith(SMS_REGISTRATION_PREFIX):
             return self.get_response(request)
 
         if request.path.startswith(self.ADMIN_ONLY_PREFIXES) and not (
@@ -83,6 +92,8 @@ class MarketplaceBuyerAccessMiddleware:
 
     def __call__(self, request):
         user = request.user
+        if request.path.startswith(SMS_REGISTRATION_PREFIX):
+            return self.get_response(request)
         restricted = request.path.startswith(self.RESTRICTED_PREFIXES)
         if user.is_authenticated and restricted and not has_farm_access(user):
             if "/api/" in request.path:

@@ -14,8 +14,9 @@ is restricted to staff. Provider credentials are never exposed by any endpoint.
 """
 
 from django.conf import settings as django_settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, viewsets
@@ -23,7 +24,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import SmsLog, SmsReminder, SmsSettings
+from marketplace.auth import is_marketplace_user
+
+from .forms import SmsRegistrationForm
+from .models import SmsLog, SmsRegistration, SmsReminder, SmsSettings
 from .providers import get_client
 from .serializers import (SmsLogSerializer, SmsReminderSerializer,
                           SmsSettingsSerializer)
@@ -161,3 +165,38 @@ def sms_dashboard(request):
         'status_choices': SmsLog.STATUS_CHOICES,
     }
     return render(request, 'sms/sms_dashboard.html', context)
+
+
+@login_required
+def sms_registration(request):
+    """Let an account owner register or pause their own mobile number."""
+    try:
+        registration = request.user.sms_registration
+    except SmsRegistration.DoesNotExist:
+        registration = SmsRegistration(user=request.user)
+
+    if request.method == 'POST':
+        form = SmsRegistrationForm(request.POST, instance=registration)
+        if form.is_valid():
+            registration = form.save(commit=False)
+            registration.user = request.user
+            registration.save()
+            messages.success(request, 'Your SMS registration has been saved.')
+            return redirect('sms:registration')
+    else:
+        form = SmsRegistrationForm(instance=registration)
+
+    return render(
+        request,
+        'sms/sms_registration.html',
+        {
+            'form': form,
+            'registration': registration if registration.pk else None,
+            'base_template': (
+                'marketplace/buyer_base.html'
+                if is_marketplace_user(request.user)
+                else 'base_modern.html'
+            ),
+            'active_page': 'sms_registration',
+        },
+    )

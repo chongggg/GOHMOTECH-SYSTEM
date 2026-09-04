@@ -9,7 +9,31 @@
        Report detail — page-scoped styles (all under .rpt-page)
        Reuses global design tokens; adds no global rules.
        ============================================================ */
-    .rpt-page { width: 100%; }
+    .rpt-page { width: 100%; min-width: 0; overflow-x: clip; }
+    .rpt-page-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--spacing-lg);
+        margin-bottom: var(--spacing-xl);
+    }
+    .rpt-page-header > div:first-child { min-width: 0; }
+    .rpt-page-header h1 {
+        margin: .2rem 0 .35rem;
+        color: var(--text-primary);
+        overflow-wrap: anywhere;
+    }
+    .rpt-page-header .page-eyebrow {
+        color: var(--primary-600);
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+    .rpt-page-header .page-subtitle { margin: 0; color: var(--text-secondary); }
+    .rpt-page-header .page-actions { flex: 0 0 auto; }
+
+    .rpt-toolbar-card { padding: var(--spacing-lg); }
 
     .rpt-toolbar {
         display: flex;
@@ -51,6 +75,7 @@
         margin-bottom: var(--spacing-xl);
     }
     .rpt-chart-card {
+        min-width: 0;
         background: var(--card-bg); border: 1px solid var(--border-color);
         border-radius: var(--radius-lg); padding: var(--spacing-lg);
         box-shadow: var(--shadow-sm);
@@ -61,7 +86,7 @@
     }
     .rpt-chart-canvas-wrap { position: relative; height: 260px; }
 
-    .rpt-table-wrap { overflow-x: auto; }
+    .rpt-table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .rpt-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .rpt-table th, .rpt-table td {
         padding: 0.65rem 0.8rem; text-align: left; white-space: nowrap;
@@ -74,17 +99,55 @@
     }
     .rpt-table tbody tr:hover { background: var(--card-bg-subtle); }
     .rpt-table td { color: var(--text-primary); }
+    .rpt-summary-grid { margin-bottom: var(--spacing-xl); }
+    .rpt-summary-grid .stat-card { min-width: 0; margin-bottom: 0; }
+    .rpt-data-card { min-width: 0; overflow: hidden; }
 
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
+        .rpt-page-header {
+            align-items: stretch;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+        .rpt-page-header .page-actions,
+        .rpt-page-header .page-actions .btn { width: 100%; }
+        .rpt-page-header .page-actions .btn { justify-content: center; }
+        .rpt-toolbar-card {
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-lg) !important;
+        }
         .rpt-toolbar { flex-direction: column; align-items: stretch; }
         .rpt-toolbar .rpt-filters { display: grid; grid-template-columns: 1fr; width: 100%; }
         .rpt-field { min-width: 0; width: 100%; }
-        .rpt-actions { display: grid; grid-template-columns: 1fr; width: 100%; }
-        .rpt-actions .btn { flex: 1 1 auto; justify-content: center; }
+        .rpt-field .btn { width: 100%; justify-content: center; }
+        .rpt-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+        .rpt-actions .btn { min-width: 0; justify-content: center; }
+        .rpt-actions .btn:last-child { grid-column: 1 / -1; }
+        .rpt-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .75rem;
+            margin-bottom: var(--spacing-lg);
+        }
+        .rpt-summary-grid .stat-card { padding: .9rem; }
+        .rpt-summary-grid .stat-icon { margin-bottom: .6rem; }
+        .rpt-summary-grid .stat-label { margin-bottom: .3rem; }
+        .rpt-summary-grid .stat-value { margin-bottom: 0; }
         .rpt-charts { grid-template-columns: minmax(0, 1fr); }
         .rpt-chart-card { padding: 0.9rem; min-width: 0; }
         .rpt-chart-canvas-wrap { height: 230px; }
+        .rpt-data-card .card-header-custom { align-items: flex-start; flex-wrap: wrap; gap: .5rem; }
+        .rpt-table { min-width: 640px; }
         .rpt-table th, .rpt-table td { padding: 0.6rem; }
+    }
+
+    @media (max-width: 420px) {
+        .rpt-summary-grid { gap: .6rem; }
+        .rpt-summary-grid .stat-card { padding: .75rem; }
+        .rpt-summary-grid .stat-icon { width: 2.2rem; height: 2.2rem; }
+        .rpt-summary-grid .stat-label { font-size: .7rem; }
+        .rpt-summary-grid .stat-value { font-size: 1.35rem; }
+        .rpt-chart-canvas-wrap { height: 210px; }
     }
 {% endblock %}
 
@@ -92,7 +155,7 @@
 <div class="rpt-page">
 
     <!-- Page Header -->
-    <div class="page-header">
+    <div class="page-header rpt-page-header">
         <div>
             <div class="page-eyebrow">{{ report.category }} Report</div>
             <h1>{{ report.title }}</h1>
@@ -106,7 +169,7 @@
     </div>
 
     <!-- Toolbar: filters + export/print actions -->
-    <div class="content-card" style="margin-bottom: var(--spacing-xl);">
+    <div class="content-card rpt-toolbar-card" style="margin-bottom: var(--spacing-xl);">
         <div class="rpt-toolbar" style="margin-bottom: 0;">
             <form method="get" id="reportFilterForm" class="rpt-filters">
                 {% for field in report.filter_form %}
@@ -154,7 +217,7 @@
 
     <!-- Summary KPI cards -->
     {% if report.summary %}
-    <div class="stat-grid" style="margin-bottom: var(--spacing-xl);">
+    <div class="stat-grid rpt-summary-grid">
         {% for card in report.summary %}
         <div class="stat-card">
             <div class="stat-icon {{ card.color }}"><i class="bi {{ card.icon }}"></i></div>
@@ -180,7 +243,7 @@
     {% endif %}
 
     <!-- Detail table -->
-    <div class="content-card">
+    <div class="content-card rpt-data-card">
         <div class="card-header-custom">
             <h5><i class="bi bi-table"></i> Detailed Data</h5>
             <span class="page-subtitle" style="margin:0;">{{ report.rows|length }} row{{ report.rows|length|pluralize }}</span>

@@ -677,6 +677,27 @@ class MarketplaceWorkflowTests(TestCase):
         self.assertContains(catalog, "data-filter-toggle")
         self.assertContains(catalog, "marketplaceFilters")
 
+    def test_farm_accounts_get_role_aware_dashboard_link_in_marketplace(self):
+        owner = User.objects.create_user("marketplace-farm-owner")
+        owner_group, _ = Group.objects.get_or_create(name=FARM_OWNER_GROUP_NAME)
+        owner.groups.add(owner_group)
+
+        for user, expected_url in (
+            (self.admin, reverse("iot:dashboard")),
+            (owner, reverse("iot:owner_dashboard")),
+            (self.farm_operator, reverse("iot:owner_dashboard")),
+        ):
+            with self.subTest(user=user.username):
+                self.client.force_login(user)
+                response = self.client.get(reverse("marketplace:list"))
+                self.assertContains(response, "Back to Dashboard", count=2)
+                self.assertContains(response, f'href="{expected_url}"', count=2)
+
+    def test_marketplace_only_buyer_does_not_get_farm_dashboard_link(self):
+        self.client.force_login(self.buyer)
+        response = self.client.get(reverse("marketplace:list"))
+        self.assertNotContains(response, "Back to Dashboard")
+
     def test_main_login_page_renders_enhanced_authentication_layout(self):
         response = self.client.get(reverse("login"))
         self.assertEqual(response.status_code, 200)
