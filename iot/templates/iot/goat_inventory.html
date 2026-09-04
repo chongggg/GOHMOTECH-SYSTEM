@@ -166,11 +166,11 @@
             <h1>Goat Inventory</h1>
             <p class="page-subtitle">Livestock records — view, search, and manage your herd</p>
         </div>
-        <div class="page-actions">
+        {% if can_manage_farm %}<div class="page-actions">
             <a href="{% url 'iot:add_goat' %}" class="btn btn-primary">
                 <i class="bi bi-plus-circle"></i> Add Goat
             </a>
-        </div>
+        </div>{% else %}<span class="badge bg-secondary">Read-only inventory</span>{% endif %}
     </div>
 
     <!-- Statistics -->
@@ -270,9 +270,9 @@
                 <i class="bi bi-inbox"></i>
                 <h5>No goats found</h5>
                 <p>Try adjusting your filters, or add your first goat to get started.</p>
-                <a href="{% url 'iot:add_goat' %}" class="btn btn-primary mt-3">
+                {% if can_manage_farm %}<a href="{% url 'iot:add_goat' %}" class="btn btn-primary mt-3">
                     <i class="bi bi-plus-circle"></i> Add Goat
-                </a>
+                </a>{% endif %}
             </div>
         </div>
     {% endif %}

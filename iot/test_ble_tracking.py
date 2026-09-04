@@ -2,10 +2,13 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
+
+from marketplace.auth import FARM_OPERATOR_GROUP_NAME
 
 from .ble_services import build_tracking_snapshot, refresh_tracking_statuses
 from .models import (
@@ -167,6 +170,8 @@ class BLETrackingPageAndApiTests(TestCase):
             username='tracking-admin',
             password='test-password',
         )
+        farm_group, _ = Group.objects.get_or_create(name=FARM_OPERATOR_GROUP_NAME)
+        self.user.groups.add(farm_group)
         self.goat = Goat.objects.create(
             goat_id='298439',
             name='jericson',
@@ -271,6 +276,8 @@ class BLETrackingPageAndApiTests(TestCase):
         return_value={'available': False},
     )
     def test_admin_dashboard_includes_live_ble_summary(self, _weather):
+        self.user.is_staff = True
+        self.user.save(update_fields=['is_staff'])
         self.client.force_login(self.user)
 
         response = self.client.get(reverse('iot:dashboard'))

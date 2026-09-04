@@ -317,7 +317,7 @@
             Live readings are never saved automatically.
         </p>
 
-        <div class="weight-mode-switch" role="group" aria-label="Weight entry method">
+        {% if can_manage_farm %}<div class="weight-mode-switch" role="group" aria-label="Weight entry method">
             <button type="button" class="btn btn-outline active" id="weight-auto-mode">
                 <i class="bi bi-broadcast"></i> Automatic / Load Cell
             </button>
@@ -376,7 +376,7 @@
             </div>
         </div>
 
-        <div class="weight-history">
+        {% endif %}<div class="weight-history">
             <h4 style="font-size: 1rem; margin-bottom: var(--spacing-md);">Weight History</h4>
             {% if weight_history %}
             <table>
@@ -581,11 +581,11 @@
                     {% for image in images %}
                     <div class="gallery-item">
                         <img src="{{ image.image.url }}" alt="Goat image">
-                        <div class="gallery-item-overlay">
+                        {% if can_manage_farm %}<div class="gallery-item-overlay">
                             <button type="button" class="delete-image-btn" onclick="deleteImage({{ image.id }}, this)">
                                 <i class="bi bi-trash"></i> Delete
                             </button>
-                        </div>
+                        </div>{% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -595,7 +595,7 @@
                 </p>
             {% endif %}
 
-            <!-- Upload Area -->
+            {% if can_manage_farm %}<!-- Upload Area -->
             <div class="upload-area" id="upload-area">
                 <i class="bi bi-cloud-arrow-up"></i>
                 <p style="font-weight: 600; font-size: 1rem;">Click or drag images here</p>
@@ -625,7 +625,7 @@
             </div>
 
             <!-- Hidden field for captured photos (JSON array of data URLs) -->
-            <input type="hidden" name="captured_photos" id="captured-photos-field">
+            <input type="hidden" name="captured_photos" id="captured-photos-field">{% endif %}
         </div>
 
         <!-- Save Actions -->
@@ -633,9 +633,9 @@
             <a href="{% url 'iot:goat_inventory' %}" class="btn btn-outline">
                 <i class="bi bi-x-circle"></i> Cancel
             </a>
-            <button type="submit" class="btn btn-primary">
+            {% if can_manage_farm %}<button type="submit" class="btn btn-primary">
                 <i class="bi bi-check-circle"></i> Save Changes
-            </button>
+            </button>{% endif %}
         </div>
 
     </form>
@@ -644,6 +644,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if can_manage_farm %}
 <script>
 // ============================================================
 // Selected-goat weight monitoring
@@ -1043,4 +1044,5 @@ window.addEventListener('beforeunload', () => {
     }
 });
 </script>
+{% endif %}
 {% endblock %}

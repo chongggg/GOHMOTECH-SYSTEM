@@ -82,12 +82,12 @@
                 <i class="bi bi-person-bounding-box me-1"></i> Security Detection
             </button>
         </li>
-        <li class="nav-item" role="presentation">
+        {% if is_system_admin %}<li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-models" data-bs-toggle="tab"
                     data-bs-target="#pane-models" type="button" role="tab">
                 <i class="bi bi-cpu me-1"></i> ML Models
             </button>
-        </li>
+        </li>{% endif %}
     </ul>
 <!-- CONTINUE_MARKER_1 -->
     <div class="tab-content" id="securityTabContent">
@@ -240,7 +240,7 @@
             </div>
         </div>
 
-        <!-- ===== ML Models ===== -->
+        {% if is_system_admin %}<!-- ===== ML Models ===== -->
         <div class="tab-pane fade" id="pane-models" role="tabpanel">
             {% if request.user.is_staff %}
             <div class="sec-stat-card mb-3">
@@ -299,7 +299,7 @@
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div>{% endif %}
 
     </div>
 </div>
@@ -513,7 +513,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function ensure(name, fn) { if (!loaded[name]) { loaded[name] = true; fn(); } }
     document.getElementById('tab-alerts').addEventListener('shown.bs.tab', () => ensure('alerts', loadAlerts));
     document.getElementById('tab-detections').addEventListener('shown.bs.tab', () => ensure('det', loadDetections));
-    document.getElementById('tab-models').addEventListener('shown.bs.tab', () => ensure('models', loadModels));
+    {% if is_system_admin %}document.getElementById('tab-models').addEventListener('shown.bs.tab', () => ensure('models', loadModels));{% endif %}
 
     document.getElementById('applyFilters').addEventListener('click', () => loadAlerts());
     document.getElementById('markAllRead').addEventListener('click', () =>
@@ -539,5 +539,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endblock %}
-
-

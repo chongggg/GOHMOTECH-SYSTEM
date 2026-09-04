@@ -1,4 +1,5 @@
 {% extends 'base_modern.html' %}
+{% load static %}
 
 {% block title %}Dashboard · GoHMoTech{% endblock %}
 {% block header_title %}Dashboard{% endblock %}
@@ -10,12 +11,12 @@
     .weather-condition { color: var(--text-secondary) !important; }
 
     /* Dashboard section spacing (uses design tokens only) */
-    .dash-section { padding: 0 30px var(--spacing-lg); }
+    .dash-section { padding: 0 0 var(--spacing-lg); }
     .dash-section > .stat-grid { margin-bottom: 0; }
     .section-title {
         display: flex; align-items: center; gap: var(--spacing-sm);
         font-family: var(--font-display); font-size: 1.05rem; font-weight: 600;
-        color: var(--text-primary); margin: 0 30px var(--spacing-sm);
+        color: var(--text-primary); margin: 0 0 var(--spacing-sm);
     }
     .section-title .bi { color: var(--primary-600); }
     .section-title .section-action {
@@ -443,7 +444,7 @@
     </div>
 
     <!-- Outdoor Weather -->
-    <div style="padding: 0 30px 20px;">
+    <div style="padding-bottom: 20px;">
         <div class="content-card">
             <div class="card-header-custom">
                 <h5>
@@ -494,7 +495,7 @@
     </div>
 
     <!-- Farm Map -->
-    <div style="padding: 0 30px 30px;">
+    <div style="padding-bottom: 30px;">
         <div class="content-card">
             <div class="card-header-custom">
                 <h5>
@@ -507,9 +508,29 @@
                 <style>
                     #canvas-container-3d {
                         width: 100%;
-                        height: 600px;
+                        height: clamp(420px, 58vw, 660px);
                         position: relative;
+                        overflow: hidden;
+                        isolation: isolate;
+                        touch-action: none;
                         background: linear-gradient(to bottom, #a8d8f0 0%, #e8f4f8 100%);
+                    }
+                    #canvas-container-3d .goat-house-canvas {
+                        position: absolute;
+                        inset: 0;
+                        width: 100%;
+                        height: 100%;
+                        display: block;
+                        z-index: 0;
+                    }
+                    .goat-house-loading {
+                        position: absolute;
+                        inset: 0;
+                        z-index: 2;
+                        display: grid;
+                        place-items: center;
+                        color: #eaf6ff;
+                        background: #163247;
                     }
                     #info-3d {
                         position: absolute;
@@ -522,10 +543,34 @@
                         font-size: 14px;
                         line-height: 1.6;
                         z-index: 1000;
+                        pointer-events: none;
                     }
                     #info-3d h3 {
                         margin: 0 0 10px 0;
                         font-size: 16px;
+                    }
+                    .goat-house-viewbar {
+                        position: absolute;
+                        right: 12px;
+                        bottom: 12px;
+                        z-index: 1050;
+                        display: flex;
+                        gap: 6px;
+                        padding: 6px;
+                        border-radius: 10px;
+                        background: rgba(15, 23, 42, 0.72);
+                    }
+                    .goat-house-viewbar button {
+                        border: 0;
+                        border-radius: 7px;
+                        padding: 6px 9px;
+                        color: #e2e8f0;
+                        background: transparent;
+                        font-size: 0.75rem;
+                    }
+                    .goat-house-viewbar button.active {
+                        color: #0f172a;
+                        background: #f8fafc;
                     }
 
                     .barn-controls {
@@ -649,9 +694,19 @@
                         .control-light { left: 70%; top: 58%; }
                         .control-door { left: 32%; top: 72%; }
                         .barn-control-popup { min-width: 190px; }
+                        #info-3d { font-size: 12px; padding: 10px; }
+                        #info-3d h3 { font-size: 14px; margin-bottom: 4px; }
+                        .goat-house-viewbar { right: 8px; bottom: 8px; }
                     }
                 </style>
                 <div id="canvas-container-3d">
+                    <div class="goat-house-loading" role="status">Preparing approved 3D goat house…</div>
+                    <nav class="goat-house-viewbar" aria-label="3D camera views">
+                        <button class="active" type="button" data-view="review">Review</button>
+                        <button type="button" data-view="front">Front</button>
+                        <button type="button" data-view="side">Side</button>
+                        <button type="button" data-view="top">Top</button>
+                    </nav>
                     <div class="barn-controls" data-camera-id="{% if camera %}{{ camera.id }}{% endif %}">
                         <button class="barn-control-btn control-feeder" data-control="feeder" aria-label="Feeder control">
                             <i class="bi bi-box-seam"></i>
@@ -708,17 +763,12 @@
                     </div>
                     <div id="info-3d">
                         <h3>3D Bahay ng Kambing</h3>
+                        <span data-environment-state>Manila time</span><br>
                         <strong>Controls:</strong><br>
                         • Drag to rotate<br>
                         • Scroll to zoom<br>
                         • Right-click drag to pan<br>
-                        <br>
-                        <strong>Camera Views:</strong><br>
-                        • Press 1 - Front View<br>
-                        • Press 2 - Right View<br>
-                        • Press 3 - Back View<br>
-                        • Press 4 - Left View<br>
-                        • Press 5 - Free Orbit
+                        • Use the view buttons for presets
                     </div>
                 </div>
             </div>
@@ -726,7 +776,7 @@
     </div>
 
     <!-- ===== Security alerts + Recent activity ===== -->
-    <div style="padding: 0 30px 30px;">
+    <div style="padding-bottom: 30px;">
         <div class="row g-4">
             <!-- Active Alerts (real, from unresolved iot.Alert) -->
             <div class="col-lg-6">
@@ -807,7 +857,7 @@
 
     <!-- Single Camera Feed - Goat House Monitoring -->
     {% if camera %}
-    <div style="padding: 0 30px 30px;">
+    <div style="padding-bottom: 30px;">
         <div class="content-card">
             <div class="card-header-custom">
                 <h5>
@@ -880,6 +930,7 @@
 
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="{% static 'js/goat_house_viewer.js' %}"></script>
 <script>
     // Initialize tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
@@ -1011,555 +1062,21 @@
     `;
     document.head.appendChild(style);
 
-    // ===== 3D Goat Barn Initialization =====
+
+    // Approved goat-house prototype, adapted to the dashboard lifecycle.
     (function() {
         const container = document.getElementById('canvas-container-3d');
-        if (!container) return;
-
-        // Scene setup
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xa8d8f0);
-        scene.fog = new THREE.Fog(0xa8d8f0, 25, 60);
-
-        // Camera setup
-        const camera = new THREE.PerspectiveCamera(
-            75,
-            container.clientWidth / container.clientHeight,
-            0.1,
-            1000
-        );
-        camera.position.set(8, 6, 8);
-
-        // Camera view positions
-        const cameraViews = {
-            front: { position: new THREE.Vector3(0, 4, 10), target: new THREE.Vector3(0, 2, 0) },
-            right: { position: new THREE.Vector3(10, 4, 0), target: new THREE.Vector3(0, 2, 0) },
-            back: { position: new THREE.Vector3(0, 4, -10), target: new THREE.Vector3(0, 2, 0) },
-            left: { position: new THREE.Vector3(-10, 4, 0), target: new THREE.Vector3(0, 2, 0) },
-            free: { position: new THREE.Vector3(8, 6, 8), target: new THREE.Vector3(0, 2, 0) }
-        };
-
-        let currentView = 'free';
-
-        // Renderer setup
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        container.appendChild(renderer.domElement);
-
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xfff4e6, 0.5);
-        scene.add(ambientLight);
-
-        const directionalLight = new THREE.DirectionalLight(0xfff8dc, 0.8);
-        directionalLight.position.set(10, 15, 5);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.camera.left = -15;
-        directionalLight.shadow.camera.right = 15;
-        directionalLight.shadow.camera.top = 15;
-        directionalLight.shadow.camera.bottom = -15;
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        scene.add(directionalLight);
-
-        const pointLight = new THREE.PointLight(0xffa500, 0.4, 20);
-        pointLight.position.set(0, 3, 0);
-        pointLight.castShadow = true;
-        scene.add(pointLight);
-
-        const fillLight = new THREE.DirectionalLight(0xb0e0e6, 0.3);
-        fillLight.position.set(-10, 5, -5);
-        scene.add(fillLight);
-
-        // Ground
-        const groundGeometry = new THREE.PlaneGeometry(30, 30, 20, 20);
-        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x6a9e3d, flatShading: true });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -0.01;
-        ground.receiveShadow = true;
-        
-        const positions = ground.geometry.attributes.position;
-        for (let i = 0; i < positions.count; i++) {
-            positions.setY(i, Math.random() * 0.05);
+        if (!container || !window.createApprovedGoatHouseViewer) return;
+        if (window.goatHouseViewer && window.goatHouseViewer.destroy) {
+            window.goatHouseViewer.destroy();
         }
-        positions.needsUpdate = true;
-        ground.geometry.computeVertexNormals();
-        scene.add(ground);
-
-        // Path
-        const pathGeometry = new THREE.PlaneGeometry(2, 4);
-        const pathMaterial = new THREE.MeshLambertMaterial({ color: 0x8b7355 });
-        const path = new THREE.Mesh(pathGeometry, pathMaterial);
-        path.rotation.x = -Math.PI / 2;
-        path.position.set(0, 0.02, 3.5);
-        path.receiveShadow = true;
-        scene.add(path);
-
-        // Goat Barn
-        const goatBarn = new THREE.Group();
-        const borderMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
-        
-        // Floor
-        const floor = new THREE.Mesh(
-            new THREE.BoxGeometry(5, 0.3, 4),
-            new THREE.MeshLambertMaterial({ color: 0x8b6914 })
-        );
-        floor.position.y = 0.25;
-        floor.castShadow = true;
-        floor.receiveShadow = true;
-        goatBarn.add(floor);
-
-        // Floor borders
-        const borders = [
-            [new THREE.BoxGeometry(5.2, 0.35, 0.15), [0, 0.25, -2]],
-            [new THREE.BoxGeometry(5.2, 0.35, 0.15), [0, 0.25, 2]],
-            [new THREE.BoxGeometry(0.15, 0.35, 4), [-2.5, 0.25, 0]],
-            [new THREE.BoxGeometry(0.15, 0.35, 4), [2.5, 0.25, 0]]
-        ];
-        borders.forEach(([geom, pos]) => {
-            const border = new THREE.Mesh(geom, borderMaterial);
-            border.position.set(...pos);
-            border.castShadow = true;
-            goatBarn.add(border);
-        });
-
-        // Floor planks
-        for (let i = 0; i < 8; i++) {
-            const plank = new THREE.Mesh(
-                new THREE.BoxGeometry(5.1, 0.32, 0.05),
-                new THREE.MeshLambertMaterial({ color: 0x6b5714 })
-            );
-            plank.position.set(0, 0.25, -1.8 + i * 0.5);
-            goatBarn.add(plank);
-        }
-
-        // Platform
-        const platformHeight = 0.8;
-        const platform = new THREE.Mesh(
-            new THREE.BoxGeometry(5, 0.3, 2),
-            new THREE.MeshLambertMaterial({ color: 0xa67c52 })
-        );
-        platform.position.set(0, 0.25 + platformHeight, -1);
-        platform.castShadow = true;
-        platform.receiveShadow = true;
-        goatBarn.add(platform);
-
-        // Platform planks
-        for (let i = 0; i < 4; i++) {
-            const plank = new THREE.Mesh(
-                new THREE.BoxGeometry(5.1, 0.32, 0.05),
-                new THREE.MeshLambertMaterial({ color: 0x8b6443 })
-            );
-            plank.position.set(0, 0.25 + platformHeight, -1.8 + i * 0.5);
-            goatBarn.add(plank);
-        }
-
-        // Platform borders
-        [[new THREE.BoxGeometry(5.2, 0.35, 0.15), [0, 0.25 + platformHeight, -2]],
-         [new THREE.BoxGeometry(0.15, 0.35, 2), [-2.5, 0.25 + platformHeight, -1]],
-         [new THREE.BoxGeometry(0.15, 0.35, 2), [2.5, 0.25 + platformHeight, -1]]
-        ].forEach(([geom, pos]) => {
-            const border = new THREE.Mesh(geom, borderMaterial);
-            border.position.set(...pos);
-            border.castShadow = true;
-            goatBarn.add(border);
-        });
-
-        // Support posts
-        const supportPostGeometry = new THREE.BoxGeometry(0.15, platformHeight, 0.15);
-        const supportPostMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
-        [[-2, 0.25 + platformHeight/2, -1.8], [2, 0.25 + platformHeight/2, -1.8],
-         [-2, 0.25 + platformHeight/2, -0.2], [2, 0.25 + platformHeight/2, -0.2]
-        ].forEach(pos => {
-            const post = new THREE.Mesh(supportPostGeometry, supportPostMaterial);
-            post.position.set(...pos);
-            post.castShadow = true;
-            goatBarn.add(post);
-        });
-
-        // Ramp
-        const rampWidth = 1.5, rampLength = 2;
-        const rampAngle = Math.atan(platformHeight / rampLength);
-        const ramp = new THREE.Mesh(
-            new THREE.BoxGeometry(rampWidth, 0.15, rampLength),
-            new THREE.MeshLambertMaterial({ color: 0xa67c52 })
-        );
-        ramp.rotation.x = rampAngle;
-        ramp.position.set(0, 0.25 + platformHeight/2, -0.1);
-        ramp.castShadow = true;
-        goatBarn.add(ramp);
-
-        // Ramp cleats
-        for (let i = 0; i < 5; i++) {
-            const cleat = new THREE.Mesh(
-                new THREE.BoxGeometry(rampWidth, 0.08, 0.08),
-                new THREE.MeshLambertMaterial({ color: 0x654321 })
-            );
-            cleat.position.set(0, 0.25 + (platformHeight * (i * 0.4) / rampLength), 0.8 - i * 0.4);
-            cleat.rotation.x = rampAngle;
-            cleat.castShadow = true;
-            goatBarn.add(cleat);
-        }
-
-        // Ramp rails
-        const railGeometry = new THREE.BoxGeometry(0.08, 0.08, rampLength);
-        [-1, 1].forEach(side => {
-            const rail = new THREE.Mesh(railGeometry, new THREE.MeshLambertMaterial({ color: 0x654321 }));
-            rail.rotation.x = rampAngle;
-            rail.position.set(side * (rampWidth/2 + 0.05), 0.25 + platformHeight/2, -0.1);
-            rail.castShadow = true;
-            goatBarn.add(rail);
-        });
-
-        // Bamboo materials
-        const bambooPole = new THREE.MeshLambertMaterial({ color: 0xc4a35a });
-        const bambooTie = new THREE.MeshLambertMaterial({ color: 0x9b8b4a });
-
-        function createBambooPanel(width, height) {
-            const panel = new THREE.Group();
-            const poleRadius = 0.04, spacing = 0.12;
-            const numPoles = Math.floor(width / spacing);
-            
-            for (let i = 0; i < numPoles; i++) {
-                const pole = new THREE.Mesh(
-                    new THREE.CylinderGeometry(poleRadius, poleRadius, height, 8),
-                    bambooPole
-                );
-                pole.position.x = (i - numPoles / 2) * spacing + spacing / 2;
-                pole.position.y = height / 2;
-                pole.castShadow = true;
-                panel.add(pole);
+        window.goatHouseViewer = window.createApprovedGoatHouseViewer(container);
+        window.addEventListener('pagehide', function destroyGoatHouseViewer() {
+            if (window.goatHouseViewer && window.goatHouseViewer.destroy) {
+                window.goatHouseViewer.destroy();
+                window.goatHouseViewer = null;
             }
-            
-            [height * 0.25, height * 0.5, height * 0.75].forEach(y => {
-                const tie = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.025, 0.025, width, 8),
-                    bambooTie
-                );
-                tie.rotation.z = Math.PI / 2;
-                tie.position.y = y;
-                tie.castShadow = true;
-                panel.add(tie);
-            });
-            
-            return panel;
-        }
-
-        // Walls
-        const backWall = createBambooPanel(5, 2.5);
-        backWall.position.set(0, 0.2, -2);
-        goatBarn.add(backWall);
-
-        const leftWall = createBambooPanel(4, 2.5);
-        leftWall.rotation.y = Math.PI / 2;
-        leftWall.position.set(-2.5, 0.2, 0);
-        goatBarn.add(leftWall);
-
-        const rightWall = createBambooPanel(4, 2.5);
-        rightWall.rotation.y = -Math.PI / 2;
-        rightWall.position.set(2.5, 0.2, 0);
-        goatBarn.add(rightWall);
-
-        const frontLeftWall = createBambooPanel(1.5, 3.2);
-        frontLeftWall.position.set(-1.75, 0.25, 2);
-        goatBarn.add(frontLeftWall);
-
-        const frontRightWall = createBambooPanel(1.5, 3.2);
-        frontRightWall.position.set(1.75, 0.25, 2);
-        goatBarn.add(frontRightWall);
-
-        // Door frame
-        const doorPostLeft = new THREE.Mesh(
-            new THREE.BoxGeometry(0.12, 2.2, 0.12),
-            new THREE.MeshLambertMaterial({ color: 0x654321 })
-        );
-        doorPostLeft.position.set(-0.9, 1.35, 2.05);
-        doorPostLeft.castShadow = true;
-        goatBarn.add(doorPostLeft);
-
-        const doorPostRight = new THREE.Mesh(
-            new THREE.BoxGeometry(0.12, 2.2, 0.12),
-            new THREE.MeshLambertMaterial({ color: 0x654321 })
-        );
-        doorPostRight.position.set(0.9, 1.35, 2.05);
-        doorPostRight.castShadow = true;
-        goatBarn.add(doorPostRight);
-
-        const doorLintel = new THREE.Mesh(
-            new THREE.BoxGeometry(2, 0.15, 0.15),
-            new THREE.MeshLambertMaterial({ color: 0x654321 })
-        );
-        doorLintel.position.set(0, 2.45, 2.05);
-        doorLintel.castShadow = true;
-        goatBarn.add(doorLintel);
-
-        // Door
-        const doorPanel = new THREE.Group();
-        const doorBoard = new THREE.Mesh(
-            new THREE.BoxGeometry(0.85, 2.1, 0.08),
-            new THREE.MeshLambertMaterial({ color: 0x8b6914 })
-        );
-        doorBoard.castShadow = true;
-        doorPanel.add(doorBoard);
-
-        for (let i = 0; i < 5; i++) {
-            const plank = new THREE.Mesh(
-                new THREE.BoxGeometry(0.87, 0.08, 0.09),
-                new THREE.MeshLambertMaterial({ color: 0x6b5714 })
-            );
-            plank.position.y = -0.8 + i * 0.4;
-            doorPanel.add(plank);
-        }
-
-        const handle = new THREE.Mesh(
-            new THREE.BoxGeometry(0.08, 0.25, 0.08),
-            new THREE.MeshLambertMaterial({ color: 0x4a4a4a })
-        );
-        handle.position.set(0.35, 0, 0.05);
-        doorPanel.add(handle);
-
-        doorPanel.position.set(-0.5, 1.3, 2.1);
-        doorPanel.rotation.y = -Math.PI / 6;
-        goatBarn.add(doorPanel);
-
-        // Wall above door
-        const aboveDoorWall = createBambooPanel(2.5, 0.65);
-        aboveDoorWall.position.set(0, 2.75, 2);
-        goatBarn.add(aboveDoorWall);
-
-        // Feeding trough
-        const troughGroup = new THREE.Group();
-        const troughMat = new THREE.MeshLambertMaterial({ color: 0x654321 });
-        
-        const troughBase = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 0.5), troughMat);
-        troughBase.position.y = 0.55;
-        troughBase.castShadow = true;
-        troughGroup.add(troughBase);
-
-        [[-0.25, 'left'], [0.25, 'right']].forEach(([z, name]) => {
-            const side = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 0.05), troughMat);
-            side.position.set(0, 0.72, z);
-            troughGroup.add(side);
-        });
-
-        [[-0.9, 'left'], [0.9, 'right']].forEach(([x, name]) => {
-            const end = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.35, 0.5), troughMat);
-            end.position.set(x, 0.72, 0);
-            troughGroup.add(end);
-        });
-
-        const feed = new THREE.Mesh(
-            new THREE.BoxGeometry(1.7, 0.2, 0.4),
-            new THREE.MeshLambertMaterial({ color: 0xe6d690 })
-        );
-        feed.position.set(0, 0.65, 0);
-        troughGroup.add(feed);
-
-        troughGroup.position.set(1.5, 0, 1.2);
-        goatBarn.add(troughGroup);
-
-        // Roof
-        const corrugatedMetal = new THREE.MeshLambertMaterial({ color: 0x9b9b9b });
-        const metalDark = new THREE.MeshLambertMaterial({ color: 0x707070 });
-        const weatheredWood = new THREE.MeshLambertMaterial({ color: 0x6b5d45 });
-
-        const roofWidth = 6, roofDepth = 5.2;
-        const roofBackHeight = 3.5, roofFrontHeight = 2.5;
-        const roofSlant = Math.atan((roofBackHeight - roofFrontHeight) / roofDepth);
-
-        const mainRoof = new THREE.Mesh(
-            new THREE.BoxGeometry(roofWidth, 0.05, roofDepth),
-            corrugatedMetal
-        );
-        mainRoof.position.set(0, (roofBackHeight + roofFrontHeight) / 2, 0);
-        mainRoof.rotation.x = -roofSlant;
-        mainRoof.castShadow = true;
-        goatBarn.add(mainRoof);
-
-        // Roof ridges
-        for (let i = 0; i < 12; i++) {
-            const ridge = new THREE.Mesh(
-                new THREE.BoxGeometry(0.08, 0.025, roofDepth),
-                metalDark
-            );
-            ridge.position.set(-roofWidth/2 + 0.25 + i * ((roofWidth - 0.5) / 11), 
-                              (roofBackHeight + roofFrontHeight) / 2 + 0.04, 0);
-            ridge.rotation.x = -roofSlant;
-            ridge.castShadow = true;
-            goatBarn.add(ridge);
-        }
-
-        // Support posts
-        [[-2.4, 1.35, -2, 2.8], [2.4, 1.35, -2, 2.8],
-         [-2.4, 1.1, 2, 2.3], [2.4, 1.1, 2, 2.3]
-        ].forEach(([x, y, z, height]) => {
-            const support = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.09, 0.1, height, 6),
-                weatheredWood
-            );
-            support.position.set(x, y, z);
-            support.castShadow = true;
-            goatBarn.add(support);
-        });
-
-        // Beams
-        const beamFront = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.12, 0.12), weatheredWood);
-        beamFront.position.set(0, 2.3, 2);
-        beamFront.castShadow = true;
-        goatBarn.add(beamFront);
-
-        const beamBack = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.12, 0.12), weatheredWood);
-        beamBack.position.set(0, 2.7, -2);
-        beamBack.castShadow = true;
-        goatBarn.add(beamBack);
-
-        scene.add(goatBarn);
-
-        // OrbitControls
-        class OrbitControls {
-            constructor(camera, domElement) {
-                this.camera = camera;
-                this.domElement = domElement;
-                this.target = new THREE.Vector3(0, 2, 0);
-                this.rotateSpeed = 0.5;
-                this.zoomSpeed = 0.5;
-                this.panSpeed = 0.5;
-                this.spherical = new THREE.Spherical();
-                this.sphericalDelta = new THREE.Spherical();
-                this.panOffset = new THREE.Vector3();
-                this.state = { NONE: -1, ROTATE: 0, ZOOM: 1, PAN: 2 };
-                this.currentState = this.state.NONE;
-                this.rotateStart = new THREE.Vector2();
-                this.rotateEnd = new THREE.Vector2();
-                this.rotateDelta = new THREE.Vector2();
-                this.panStart = new THREE.Vector2();
-                this.panEnd = new THREE.Vector2();
-                this.panDelta = new THREE.Vector2();
-                this.scale = 1;
-                
-                this.domElement.addEventListener('mousedown', this.onMouseDown.bind(this));
-                this.domElement.addEventListener('wheel', this.onMouseWheel.bind(this));
-                this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
-                this.update();
-            }
-            
-            onMouseDown(event) {
-                event.preventDefault();
-                if (event.button === 0) {
-                    this.currentState = this.state.ROTATE;
-                    this.rotateStart.set(event.clientX, event.clientY);
-                } else if (event.button === 2) {
-                    this.currentState = this.state.PAN;
-                    this.panStart.set(event.clientX, event.clientY);
-                }
-                this.domElement.addEventListener('mousemove', this.onMouseMove.bind(this));
-                this.domElement.addEventListener('mouseup', this.onMouseUp.bind(this));
-            }
-            
-            onMouseMove(event) {
-                event.preventDefault();
-                if (this.currentState === this.state.ROTATE) {
-                    this.rotateEnd.set(event.clientX, event.clientY);
-                    this.rotateDelta.subVectors(this.rotateEnd, this.rotateStart);
-                    this.sphericalDelta.theta -= 2 * Math.PI * this.rotateDelta.x / this.domElement.clientHeight * this.rotateSpeed;
-                    this.sphericalDelta.phi -= 2 * Math.PI * this.rotateDelta.y / this.domElement.clientHeight * this.rotateSpeed;
-                    this.rotateStart.copy(this.rotateEnd);
-                } else if (this.currentState === this.state.PAN) {
-                    this.panEnd.set(event.clientX, event.clientY);
-                    this.panDelta.subVectors(this.panEnd, this.panStart);
-                    this.pan(this.panDelta.x, this.panDelta.y);
-                    this.panStart.copy(this.panEnd);
-                }
-                this.update();
-            }
-            
-            onMouseUp(event) {
-                this.domElement.removeEventListener('mousemove', this.onMouseMove.bind(this));
-                this.domElement.removeEventListener('mouseup', this.onMouseUp.bind(this));
-                this.currentState = this.state.NONE;
-            }
-            
-            onMouseWheel(event) {
-                event.preventDefault();
-                this.scale *= event.deltaY < 0 ? 1 / 0.95 : 0.95;
-                this.update();
-            }
-            
-            pan(deltaX, deltaY) {
-                const offset = new THREE.Vector3();
-                const panLeft = new THREE.Vector3();
-                const panUp = new THREE.Vector3();
-                offset.copy(this.camera.position).sub(this.target);
-                let targetDistance = offset.length() * Math.tan((this.camera.fov / 2) * Math.PI / 180.0);
-                panLeft.setFromMatrixColumn(this.camera.matrix, 0);
-                panLeft.multiplyScalar(-2 * deltaX * targetDistance / this.domElement.clientHeight * this.panSpeed);
-                panUp.setFromMatrixColumn(this.camera.matrix, 1);
-                panUp.multiplyScalar(2 * deltaY * targetDistance / this.domElement.clientHeight * this.panSpeed);
-                this.panOffset.add(panLeft).add(panUp);
-            }
-            
-            update() {
-                const offset = new THREE.Vector3();
-                const quat = new THREE.Quaternion().setFromUnitVectors(this.camera.up, new THREE.Vector3(0, 1, 0));
-                const quatInverse = quat.clone().invert();
-                offset.copy(this.camera.position).sub(this.target);
-                offset.applyQuaternion(quat);
-                this.spherical.setFromVector3(offset);
-                this.spherical.theta += this.sphericalDelta.theta;
-                this.spherical.phi += this.sphericalDelta.phi;
-                this.spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.spherical.phi));
-                this.spherical.radius *= this.scale;
-                this.spherical.radius = Math.max(3, Math.min(30, this.spherical.radius));
-                this.target.add(this.panOffset);
-                offset.setFromSpherical(this.spherical);
-                offset.applyQuaternion(quatInverse);
-                this.camera.position.copy(this.target).add(offset);
-                this.camera.lookAt(this.target);
-                this.sphericalDelta.set(0, 0, 0);
-                this.panOffset.set(0, 0, 0);
-                this.scale = 1;
-                return true;
-            }
-        }
-
-        const controls = new OrbitControls(camera, renderer.domElement);
-
-        // Keyboard controls
-        window.addEventListener('keydown', (event) => {
-            let view = null;
-            switch(event.key) {
-                case '1': view = 'front'; break;
-                case '2': view = 'right'; break;
-                case '3': view = 'back'; break;
-                case '4': view = 'left'; break;
-                case '5': view = 'free'; break;
-            }
-            if (view) {
-                currentView = view;
-                const viewData = cameraViews[view];
-                camera.position.copy(viewData.position);
-                controls.target.copy(viewData.target);
-                controls.update();
-            }
-        });
-
-        // Animation loop
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        }
-
-        // Resize handler
-        window.addEventListener('resize', () => {
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-        });
-
-        animate();
+        }, { once: true });
     })();
 
     // ===== 3D Barn Control Popups =====
@@ -1601,6 +1118,12 @@
             if (!button) return;
             button.textContent = label;
             button.disabled = Boolean(disabled);
+        }
+
+        function publishLightState(currentState) {
+            window.dispatchEvent(new CustomEvent('gohmotech:light-state', {
+                detail: { state: currentState, isOn: currentState === 'on' }
+            }));
         }
 
         function closePopups(exceptControl) {
@@ -1689,9 +1212,11 @@
                         state.light.id = light.id;
                         state.light.current = light.current_state;
                         const lightOn = light.current_state === 'on';
+                        publishLightState(light.current_state);
                         setStatus('light', lightOn ? 'Light on' : 'Light off', lightOn ? 'good' : 'warn');
                         setActionLabel('light', lightOn ? 'Turn off' : 'Turn on');
                     } else {
+                        publishLightState('off');
                         setStatus('light', 'Light actuator missing', 'bad');
                         setActionLabel('light', 'Unavailable', true);
                     }

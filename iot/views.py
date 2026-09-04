@@ -2,9 +2,11 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from marketplace.auth import is_admin
+from marketplace.decorators import farm_access_required, farm_owner_required, staff_required
+from marketplace.permissions import FarmRolePermission, IsAdmin, IsFarmOwnerOrAdmin
 from django.utils import timezone
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Avg, Max, Min, Count, Q, Sum
@@ -52,7 +54,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
     """ViewSet for Device CRUD operations"""
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
     
     @action(detail=True, methods=['get'])
     def recent_data(self, request, pk=None):
@@ -73,7 +75,7 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     """ViewSet for Sensor Data operations"""
     queryset = SensorData.objects.all()
     serializer_class = SensorDataSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FarmRolePermission]
     filterset_fields = ['device', 'sensor_type', 'timestamp']
     
     def create(self, request, *args, **kwargs):
@@ -94,7 +96,7 @@ class AlertViewSet(viewsets.ModelViewSet):
     """ViewSet for Alert operations"""
     queryset = Alert.objects.all()
     serializer_class = AlertSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsFarmOwnerOrAdmin]
     filterset_fields = ['device', 'severity', 'is_resolved']
 
     @action(detail=True, methods=['post'])
@@ -133,7 +135,7 @@ class SensorReadingViewSet(viewsets.ModelViewSet):
         """Allow unauthenticated POST for ESP32 devices, require auth for other methods"""
         if self.action == 'create':
             return [AllowAny()]
-        return [IsAuthenticated()]
+        return [FarmRolePermission()]
     
     def create(self, request, *args, **kwargs):
         """Create sensor reading from ESP32 device"""
@@ -301,8 +303,10 @@ def build_recent_activity(limit=12):
     return items[:limit]
 
 
-@login_required
+@farm_access_required
 def dashboard_modern(request):
+    if not is_admin(request.user):
+        return redirect('iot:owner_dashboard')
     """Modern dashboard with farm map visualization"""
     devices = Device.objects.filter(is_active=True)[:8]  # Show first 8 active devices
     alerts = Alert.objects.filter(is_resolved=False).order_by('-created_at')[:5]
@@ -476,7 +480,7 @@ def dashboard_modern(request):
     return render(request, 'iot/dashboard_modern.html', context)
 
 
-@login_required
+@farm_access_required
 def goats_list(request):
     """Display list of all goats"""
     if Goat is None:
@@ -499,7 +503,7 @@ def goats_list(request):
     return render(request, 'iot/goats_list.html', context)
 
 
-@login_required
+@farm_access_required
 def goat_detail(request, goat_id):
     """Display detailed information about a specific goat"""
     if Goat is None:
@@ -530,7 +534,7 @@ def goat_detail(request, goat_id):
     return render(request, 'iot/goat_detail.html', context)
 
 
-@login_required
+@farm_owner_required
 def add_goat(request):
     """Add a new goat to the inventory (manual registration only)"""
     if Goat is None:
@@ -543,7 +547,10 @@ def add_goat(request):
         beacon_valid = beacon_form.is_valid()
         if goat_valid and beacon_valid:
             with transaction.atomic():
-                goat = form.save()
+                goat = form.save(commit=False)
+                goat.owner = request.user
+                goat.record_source = Goat.SMART_FARM
+                goat.save()
                 beacon_form.save_for_goat(goat)
 
                 # Save webcam-captured photo as a reference image (not used for AI recognition)
@@ -603,7 +610,7 @@ def _save_captured_photo(goat, data_url):
         return None
 
 
-@login_required
+@staff_required
 def devices_list(request):
     """Display list of all IoT devices"""
     devices = Device.objects.all().order_by('-is_active', 'name')
@@ -631,7 +638,7 @@ def devices_list(request):
     return render(request, 'iot/devices_list.html', context)
 
 
-@login_required
+@staff_required
 def device_detail(request, device_id):
     """Display detailed information about a specific device"""
     device = get_object_or_404(Device, device_id=device_id)
@@ -661,7 +668,7 @@ def device_detail(request, device_id):
     return render(request, 'iot/device_detail.html', context)
 
 
-@login_required
+@farm_owner_required
 def cameras_list(request):
     """Display list of all cameras"""
     if IPCamera is None:
@@ -686,7 +693,7 @@ def cameras_list(request):
     return render(request, 'iot/cameras_list.html', context)
 
 
-@login_required
+@farm_owner_required
 def camera_detail(request, camera_id):
     """Display detailed view of a specific camera"""
     if IPCamera is None:
@@ -701,7 +708,7 @@ def camera_detail(request, camera_id):
     return render(request, 'iot/camera_detail.html', context)
 
 
-@login_required
+@farm_access_required
 def monitoring_dashboard(request):
     """Main monitoring dashboard showing real-time status of all systems"""
     # Get active devices
@@ -818,7 +825,6 @@ def monitoring_dashboard(request):
 
 from django.http import StreamingHttpResponse, JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
 from .goat_models import IPCamera
 from .camera_utils import camera_manager
 import time
@@ -876,7 +882,7 @@ def generate_mjpeg_stream(camera_id, quality=85, fps=20):
                 break
 
 
-@login_required
+@farm_access_required
 def camera_feed(request, camera_id):
     """
     Stream live video feed from a camera using MJPEG
@@ -913,9 +919,8 @@ def camera_feed(request, camera_id):
     return response
 
 
-@login_required
+@farm_owner_required
 @require_http_methods(["POST"])
-@csrf_exempt
 def camera_connect(request):
     """
     Connect to a camera and start streaming
@@ -1012,7 +1017,7 @@ def camera_connect(request):
         }, status=500)
 
 
-@login_required
+@farm_owner_required
 @require_http_methods(["POST"])
 def start_camera(request, camera_id):
     """
@@ -1047,7 +1052,7 @@ def start_camera(request, camera_id):
         }, status=500)
 
 
-@login_required
+@farm_owner_required
 @require_http_methods(["POST"])
 def stop_camera(request, camera_id):
     """
@@ -1076,7 +1081,7 @@ def stop_camera(request, camera_id):
         }, status=400)
 
 
-@login_required
+@farm_access_required
 def camera_status(request, camera_id):
     """
     Get the current status of a camera
@@ -1101,7 +1106,7 @@ def camera_status(request, camera_id):
     })
 
 
-@login_required
+@farm_access_required
 def all_cameras_status(request):
     """
     Get status of all cameras
@@ -1130,7 +1135,7 @@ def all_cameras_status(request):
     })
 
 
-@login_required
+@farm_access_required
 def camera_snapshot(request, camera_id):
     """
     Capture and return a single snapshot from the camera
@@ -1159,6 +1164,7 @@ class ActuatorStateViewSet(viewsets.ModelViewSet):
     """ViewSet for controlling actuators (doors, lights)"""
     queryset = ActuatorState.objects.select_related('device').all()
     serializer_class = ActuatorStateSerializer
+    permission_classes = [FarmRolePermission]
     
     def get_permissions(self):
         """Allow unauthenticated GET/POST for ESP32, require auth for other methods"""
@@ -1449,7 +1455,7 @@ class AutomationRuleViewSet(viewsets.ModelViewSet):
     """ViewSet for automation rules"""
     queryset = AutomationRule.objects.select_related('actuator').all()
     serializer_class = AutomationRuleSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FarmRolePermission]
     
     @action(detail=True, methods=['post'])
     def toggle_active(self, request, pk=None):
@@ -1482,7 +1488,7 @@ class ActuationLogViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for viewing actuation logs (read-only)"""
     queryset = ActuationLog.objects.select_related('device', 'rule').all()
     serializer_class = ActuationLogSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FarmRolePermission]
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -1504,7 +1510,7 @@ class ActuationLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 # ============ Automation Control Dashboard ============
 
-@login_required
+@farm_owner_required
 def automation_control(request):
     """Dashboard for controlling automated door, lighting, and feeding systems"""
     from feeding.models import FeedSchedule
@@ -1736,7 +1742,7 @@ def automation_control(request):
     return render(request, 'iot/automation_control.html', context)
 
 
-@login_required
+@staff_required
 def camera_test(request):
     """Test page to verify camera feed is working"""
     camera = get_object_or_404(IPCamera, is_active=True)
@@ -1748,7 +1754,7 @@ def camera_test(request):
     return render(request, 'camera_test.html', context)
 
 
-@login_required
+@farm_owner_required
 def automation_schedule(request):
     """Automation schedules and rules management page"""
     from feeding.models import FeedSchedule
@@ -1861,7 +1867,7 @@ def automation_schedule(request):
 # AUTOMATION API ENDPOINTS
 # ═══════════════════════════════════════════════════════════════════
 
-@csrf_exempt
+@farm_owner_required
 @require_http_methods(["POST"])
 def api_create_schedule(request):
     """API to create time-based schedule for door/light/feeder"""
@@ -1972,7 +1978,7 @@ def api_create_schedule(request):
         }, status=500)
 
 
-@csrf_exempt
+@farm_owner_required
 @require_http_methods(["POST"])
 def api_toggle_schedule(request, schedule_id):
     """Toggle schedule active/inactive"""
@@ -1992,7 +1998,7 @@ def api_toggle_schedule(request, schedule_id):
         }, status=404)
 
 
-@csrf_exempt
+@farm_owner_required
 @require_http_methods(["DELETE"])
 def api_delete_schedule(request, schedule_id):
     """Delete a schedule"""
@@ -2011,7 +2017,7 @@ def api_delete_schedule(request, schedule_id):
         }, status=404)
 
 
-@csrf_exempt
+@farm_owner_required
 @require_http_methods(["POST"])
 def api_create_rule(request):
     """API to create automation rule"""
@@ -2061,7 +2067,7 @@ def api_create_rule(request):
         }, status=500)
 
 
-@csrf_exempt
+@farm_owner_required
 @require_http_methods(["POST"])
 def api_toggle_rule(request, rule_id):
     """Toggle rule active/inactive"""
@@ -2081,7 +2087,7 @@ def api_toggle_rule(request, rule_id):
         }, status=404)
 
 
-@csrf_exempt
+@farm_owner_required
 @require_http_methods(["DELETE"])
 def api_delete_rule(request, rule_id):
     """Delete an automation rule"""
@@ -2100,7 +2106,7 @@ def api_delete_rule(request, rule_id):
         }, status=404)
 
 
-@csrf_exempt
+@farm_owner_required
 @require_http_methods(["POST"])
 def api_toggle_automation(request):
     """Toggle master automation on/off"""
@@ -2125,7 +2131,7 @@ def api_toggle_automation(request):
         }, status=500)
 
 
-@csrf_exempt
+@farm_owner_required
 @require_http_methods(["POST"])
 def api_update_schedule(request, schedule_id):
     """Update an existing schedule"""
@@ -2170,7 +2176,7 @@ def api_update_schedule(request, schedule_id):
         }, status=500)
 
 
-@csrf_exempt
+@farm_owner_required
 @require_http_methods(["POST"])
 def api_update_rule(request, rule_id):
     """Update an existing automation rule"""

@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+
+from marketplace.decorators import farm_access_required, farm_owner_required
 
 from feeding.models import FeedLevel, FeedLog, FeedSchedule
 from iot.goat_models import GoatBehaviorLog, GoatDetectionHistory, GoatImage, IPCamera, MissingGoatAlert
@@ -97,7 +98,7 @@ def _format_days(days):
     return ", ".join(labels[d] for d in valid_days) if valid_days else "Not set"
 
 
-@login_required
+@farm_owner_required
 @require_POST
 def owner_create_schedule(request):
     """Create a simple time-based automation schedule from owner mobile UI."""
@@ -181,7 +182,7 @@ def owner_create_schedule(request):
     return redirect("owner_dashboard")
 
 
-@login_required
+@farm_owner_required
 @require_POST
 def owner_actuator_control(request, actuator_id):
     """Owner-safe actuator control endpoint for mobile dashboard buttons."""
@@ -250,12 +251,17 @@ def owner_actuator_control(request, actuator_id):
     )
 
 
-@login_required
+@farm_access_required
 def owner_dashboard(request):
-    """Mobile-first dashboard for goat owners (separate from admin UI)."""
+    """Role-aware farm operations dashboard using the shared application shell."""
     owned_goats = _get_owned_goats(request.user).order_by("goat_id")
 
     total_goats = owned_goats.count()
+    active_goats = owned_goats.filter(is_active=True, status="active").count()
+    missing_goats_count = owned_goats.filter(status="missing").count()
+    goats_currently_detected = owned_goats.filter(
+        last_seen__gte=timezone.now() - timedelta(minutes=5)
+    ).count()
     healthy_goats = owned_goats.filter(health_status="healthy", status="active").count()
     goats_needing_attention = owned_goats.filter(
         Q(health_status__in=["monitoring", "sick", "quarantine"]) | Q(status="missing")
@@ -320,6 +326,9 @@ def owner_dashboard(request):
     location_history = GoatDetectionHistory.objects.filter(goat__in=goat_ids).select_related("goat", "camera").order_by("-timestamp")[:10]
 
     owner_camera = IPCamera.objects.filter(is_active=True).order_by("location").first()
+    active_cameras = IPCamera.objects.filter(is_active=True)
+    cameras_online = active_cameras.filter(status="active").count()
+    cameras_total = active_cameras.count()
 
     owner_actuators = list(
         ActuatorState.objects.filter(actuator_type__in=["light", "fan", "feeder", "water", "door"])
@@ -430,6 +439,9 @@ def owner_dashboard(request):
 
     context = {
         "total_goats": total_goats,
+        "active_goats": active_goats,
+        "missing_goats_count": missing_goats_count,
+        "goats_currently_detected": goats_currently_detected,
         "healthy_goats": healthy_goats,
         "goats_needing_attention": goats_needing_attention,
         "recent_alerts": recent_alerts,
@@ -444,6 +456,8 @@ def owner_dashboard(request):
         "health_history": health_history,
         "location_history": location_history,
         "owner_camera": owner_camera,
+        "cameras_online": cameras_online,
+        "cameras_total": cameras_total,
         "owner_actuators": owner_actuators,
         "owner_automation_rules": owner_automation_rules,
         "owner_feeder_schedules": owner_feeder_schedules,

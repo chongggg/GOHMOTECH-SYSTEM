@@ -1,0 +1,21 @@
+{% extends "marketplace/buyer_base.html" %}
+{% block title %}Complete Profile | GoHMotech{% endblock %}
+{% block content %}
+<section class="buyer-page">
+  <div class="store-container">
+    <div class="account-card">
+      <span class="section-kicker">One quick step</span>
+      <h1>Complete your profile</h1>
+      <p>Google did not provide all required profile information. Please confirm your name to continue.</p>
+      {% include "marketplace/_messages.html" %}
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="button button-primary detail-action" type="submit">
+          Save and continue <i class="bi bi-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -6,3 +6,5 @@ class MarketplaceConfig(AppConfig):
     name = "marketplace"
     verbose_name = "Marketplace"
 
+    def ready(self):
+        from . import signals  # noqa: F401

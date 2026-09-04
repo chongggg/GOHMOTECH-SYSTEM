@@ -8,7 +8,15 @@ from django.utils import timezone
 
 from analytics import report_data
 from iot.models import Goat
-from marketplace.models import Conversation, MarketplaceListing, Reservation
+from marketplace.auth import BUYER_GROUP_NAME
+from marketplace.models import (
+    Conversation,
+    MarketplaceListing,
+    MarketplaceReport,
+    Reservation,
+    SellerProfile,
+)
+from django.contrib.auth.models import Group
 
 
 class MonthlyAggregationTests(SimpleTestCase):
@@ -35,6 +43,16 @@ class MarketplaceReportTests(TestCase):
             "reportadmin", password="testpass123", is_staff=True
         )
         self.buyer = User.objects.create_user("reportbuyer", password="testpass123")
+        self.buyer.groups.add(Group.objects.get_or_create(name=BUYER_GROUP_NAME)[0])
+        SellerProfile.objects.create(
+            user=self.buyer,
+            farm_name="Report Farm",
+            municipality="San Jose",
+            province="Nueva Ecija",
+            contact_number="09171234567",
+            farm_description="Analytics test seller.",
+            status=SellerProfile.APPROVED,
+        )
         self.goat = Goat.objects.create(
             goat_id="REPORT-GOAT-001",
             breed="native",
@@ -70,8 +88,24 @@ class MarketplaceReportTests(TestCase):
         summary = {card["label"]: card["value"] for card in data["summary"]}
         self.assertEqual(summary["Completed Sales"], 1)
         self.assertEqual(summary["Sales Revenue"], "PHP 15,000.00")
+        self.assertEqual(summary["Registered Buyers"], 1)
+        self.assertEqual(summary["Approved Sellers"], 1)
         self.assertEqual(len(data["rows"]), 1)
         self.assertEqual(data["rows"][0][1], "REPORT-GOAT-001")
+        chart_ids = {chart["id"] for chart in data["charts"]}
+        self.assertTrue(
+            {"seller_status", "listed_breeds", "listing_locations"}.issubset(chart_ids)
+        )
+
+    def test_marketplace_builder_counts_open_reports(self):
+        MarketplaceReport.objects.create(
+            reporter=self.buyer,
+            listing=self.listing,
+            reason=MarketplaceReport.INCORRECT,
+        )
+        data = report_data.build_marketplace(days=30)
+        summary = {card["label"]: card["value"] for card in data["summary"]}
+        self.assertEqual(summary["Open Reports"], 1)
 
     def test_marketplace_report_is_in_report_center_and_renders(self):
         self.client.force_login(self.staff)

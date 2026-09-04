@@ -1,5 +1,6 @@
 # Django Core
-Django>=5.1,<5.2
+Django>=6.0,<6.1
+django-allauth[socialaccount]>=65.19,<66
 python-dotenv>=1.0.0
 
 # Database (MySQL)
@@ -40,15 +41,11 @@ numpy>=1.26.0                 # Array operations
 Pillow>=10.2.0                # Image handling
 joblib>=1.3.2                 # Model serialization
 
-# Data validation
-pydantic>=2.5.0
-
 # Report exports
 openpyxl>=3.1.0              # Excel (.xlsx) report generation
 
 # Utilities
 requests>=2.31.0
-python-dateutil>=2.8.2
 
 # Development & Testing
 pytest>=7.4.3

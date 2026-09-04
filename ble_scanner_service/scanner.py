@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import logging
 import time
 
-from .config import ScannerConfig, normalize_mac
+from .config import normalize_mac
 from .ibeacon import (
     identify_advertisement_protocol,
     manufacturer_data_hex,

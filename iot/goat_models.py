@@ -12,6 +12,13 @@ import uuid as uuid_lib
 logger = logging.getLogger(__name__)
 
 
+class SmartFarmGoatManager(models.Manager):
+    """Keep community marketplace records out of farm and IoT queries."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(record_source="smart_farm")
+
+
 def normalize_ble_mac_address(value):
     """Return an uppercase, colon-delimited BLE MAC address or ``None``."""
     if value in (None, ''):
@@ -70,6 +77,13 @@ class Goat(models.Model):
         ('partially_vaccinated', 'Partially Vaccinated'),
         ('fully_vaccinated', 'Fully Vaccinated'),
         ('unknown', 'Unknown'),
+    ]
+
+    SMART_FARM = "smart_farm"
+    COMMUNITY = "community"
+    RECORD_SOURCE_CHOICES = [
+        (SMART_FARM, "GoHMoTech Smart Farm"),
+        (COMMUNITY, "Community Seller"),
     ]
 
     # Basic identification
@@ -156,6 +170,22 @@ class Goat(models.Model):
         help_text="General notes or remarks about this goat"
     )
 
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="owned_goats",
+        help_text="Account responsible for this goat record.",
+    )
+    record_source = models.CharField(
+        max_length=20,
+        choices=RECORD_SOURCE_CHOICES,
+        default=SMART_FARM,
+        db_index=True,
+        help_text="Separates IoT-integrated farm goats from manual community records.",
+    )
+
     # Inventory status
     status = models.CharField(
         max_length=20,
@@ -191,6 +221,9 @@ class Goat(models.Model):
         help_text="Last time the feature embedding was updated"
     )
 
+    objects = SmartFarmGoatManager()
+    all_objects = models.Manager()
+
     class Meta:
         ordering = ['goat_id']
         indexes = [
@@ -198,12 +231,29 @@ class Goat(models.Model):
             models.Index(fields=['is_active', 'health_status']),
             models.Index(fields=['status']),
             models.Index(fields=['last_seen']),
+            models.Index(fields=['owner', 'record_source']),
+            models.Index(
+                fields=['record_source', 'status', 'is_active'],
+                name='goat_source_status_idx',
+            ),
+            models.Index(fields=['breed', 'gender'], name='goat_breed_gender_idx'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(record_source="smart_farm") | models.Q(owner__isnull=False),
+                name="community_goat_requires_owner",
+            )
         ]
     
     def __str__(self):
         if self.name:
             return f"{self.goat_id} - {self.name}"
         return self.goat_id
+
+    def clean(self):
+        super().clean()
+        if self.record_source == self.COMMUNITY and not self.owner_id:
+            raise ValidationError({"owner": "Community goats must have an account owner."})
     
     @property
     def age_days(self):

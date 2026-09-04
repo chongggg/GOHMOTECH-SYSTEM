@@ -1,12 +1,14 @@
 <article class="product-card">
+  {% if user.is_authenticated and not user.is_staff and user != listing.seller %}<form class="card-save-form" method="post" action="{% url 'marketplace:toggle_favorite' listing.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button type="submit" aria-label="{% if listing.is_saved %}Remove goat from saved goats{% else %}Save goat{% endif %}" class="{% if listing.is_saved %}saved{% endif %}"><i class="bi bi-heart{% if listing.is_saved %}-fill{% endif %}"></i></button></form>{% endif %}
   <a class="product-image" href="{% url 'marketplace:detail' listing.pk %}">
-    {% if listing.display_image %}<img src="{{ listing.display_image.image.url }}" alt="{{ listing.goat.get_breed_display }} goat {{ listing.goat.goat_id }}">{% else %}<div class="product-placeholder"><i class="bi bi-image"></i><span>Photo coming soon</span></div>{% endif %}
+    {% if listing.display_image %}<img src="{{ listing.display_image.image.url }}" alt="{{ listing.goat.get_breed_display }} goat {{ listing.goat.goat_id }}" width="640" height="480" decoding="async" {% if eager %}loading="eager" fetchpriority="high"{% else %}loading="lazy"{% endif %}>{% else %}<div class="product-placeholder"><i class="bi bi-image"></i><span>Photo coming soon</span></div>{% endif %}
     <span class="availability availability-{{ listing.status }}"><i class="bi bi-circle-fill"></i> {{ listing.get_status_display }}</span>
+    {% if listing.goat.record_source == 'smart_farm' %}<span class="record-source-badge"><i class="bi bi-cpu"></i> Smart-farm record</span>{% endif %}
   </a>
   <div class="product-body">
     <div class="product-title"><div><small>Tag {{ listing.goat.tag_number|default:listing.goat.goat_id }}</small><h3>{{ listing.goat.name|default:listing.goat.get_breed_display }}</h3></div><strong>PHP {{ listing.price|floatformat:0 }}</strong></div>
     <div class="product-specs"><span><i class="bi bi-bookmark"></i>{{ listing.goat.get_breed_display }}</span><span><i class="bi bi-gender-ambiguous"></i>{{ listing.goat.get_gender_display }}</span><span><i class="bi bi-speedometer2"></i>{% if listing.goat.weight_kg %}{{ listing.goat.weight_kg|floatformat:1 }} kg{% else %}Weight N/A{% endif %}</span><span><i class="bi bi-calendar3"></i>{{ listing.goat.age_display }}</span></div>
-    <a class="product-button" href="{% url 'marketplace:detail' listing.pk %}">View details <i class="bi bi-arrow-up-right"></i></a>
+    {% if listing.seller.seller_profile %}<a class="product-seller" href="{% url 'marketplace:seller_profile' listing.seller.seller_profile.pk %}"><i class="bi bi-patch-check-fill"></i><span><strong>{{ listing.seller.seller_profile.farm_name }}</strong><small><i class="bi bi-geo-alt"></i> {{ listing.seller.seller_profile.public_location|default:'Location not provided' }}</small></span></a>{% else %}<div class="product-seller"><i class="bi bi-house-heart-fill"></i><span><strong>GoHMoTech Smart Farm</strong><small>Original client farm listing</small></span></div>{% endif %}
+    <a class="product-button" href="{% url 'marketplace:detail' listing.pk %}">View goat details <i class="bi bi-arrow-up-right"></i></a>
   </div>
 </article>
-

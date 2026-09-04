@@ -1,23 +1,28 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from iot.models import Device
 from ml_models.models import Detection
 from feeding.models import FeedLog
-from marketplace.auth import is_marketplace_buyer
+from marketplace.auth import has_farm_access
+from marketplace.decorators import farm_access_required
 
 
-@login_required
 def dashboard_home_view(request):
-    """Role-based landing redirect after login."""
-    if is_marketplace_buyer(request.user):
+    """Send public visitors and signed-in users to the right experience."""
+    if not request.user.is_authenticated:
+        return redirect('/marketplace/')
+    if not has_farm_access(request.user):
         return redirect('/marketplace/')
     if request.user.is_staff or request.user.is_superuser:
         return redirect('/iot/')
     return redirect('/iot/owner/')
 
 
-@login_required
+def permission_denied_view(request, exception=None):
+    return render(request, '403.html', status=403)
+
+
+@farm_access_required
 def new_features_view(request):
     """New features guide page"""
     return render(request, 'dashboard/new_features.html', {
@@ -25,7 +30,7 @@ def new_features_view(request):
     })
 
 
-@login_required
+@farm_access_required
 def overview_view(request):
     """System overview page"""
     devices = Device.objects.filter(is_active=True)
@@ -48,7 +53,7 @@ def overview_view(request):
     return render(request, 'dashboard/overview.html', context)
 
 
-@login_required
+@farm_access_required
 def farm_map_view(request):
     """Farm map visualization page"""
     devices = Device.objects.filter(is_active=True)

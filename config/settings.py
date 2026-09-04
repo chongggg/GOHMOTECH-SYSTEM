@@ -36,6 +36,12 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-change-this-in-prod
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
+# Accepted marketplace reservations expire automatically when marketplace pages
+# are visited. This avoids requiring a scheduler for the capstone deployment.
+MARKETPLACE_RESERVATION_HOLD_HOURS = max(
+    1, int(os.getenv("MARKETPLACE_RESERVATION_HOLD_HOURS", "72"))
+)
+
 # Allow all hosts in development, restrict in production
 if DEBUG:
     ALLOWED_HOSTS = ['*']
@@ -52,6 +58,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Authentication and Google OAuth/OpenID Connect
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
     
     # Third party apps
     'rest_framework',
@@ -79,8 +91,11 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'marketplace.middleware.FarmRoleAccessMiddleware',
     'marketplace.middleware.MarketplaceBuyerAccessMiddleware',
+    'marketplace.middleware.MarketplaceProfileCompletionMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -170,11 +185,63 @@ STATICFILES_DIRS = [
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+# Support evidence is deliberately outside MEDIA_ROOT so it cannot be fetched
+# through the development media route. Downloads always pass through an
+# authenticated, ticket-scoped view.
+PRIVATE_SUPPORT_ROOT = BASE_DIR / 'private_support_uploads'
 
 # Authentication Configuration
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# Keep username login available for existing farm/admin accounts while all new
+# marketplace registrations use email. The built-in User.username remains an
+# internal identifier and avoids a high-risk user-model swap.
+ACCOUNT_LOGIN_METHODS = {'email', 'username'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_SIGNUP_FORM_CLASS = 'marketplace.forms.MarketplaceSignupForm'
+ACCOUNT_SIGNUP_REDIRECT_URL = '/marketplace/goats/'
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_PREVENT_ENUMERATION = True
+ACCOUNT_EMAIL_VERIFICATION = os.getenv(
+    'ACCOUNT_EMAIL_VERIFICATION',
+    'none' if DEBUG else 'mandatory',
+)
+ACCOUNT_EMAIL_SUBJECT_PREFIX = '[GoHMotech] '
+ACCOUNT_LOGOUT_ON_GET = False
+
+# Google verifies the email claim. Matching that verified address to one local
+# account avoids duplicates and stores Google's stable subject ID by connecting
+# the SocialAccount. OAuth access/refresh tokens are not retained.
+GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '').strip()
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '').strip()
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+SOCIALACCOUNT_LOGIN_ON_GET = False
+SOCIALACCOUNT_STORE_TOKENS = False
+SOCIALACCOUNT_REQUESTS_TIMEOUT = 10
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+        'OAUTH_PKCE_ENABLED': True,
+        'EMAIL_AUTHENTICATION': True,
+    }
+}
+if GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET:
+    SOCIALACCOUNT_PROVIDERS['google']['APPS'] = [
+        {
+            'client_id': GOOGLE_OAUTH_CLIENT_ID,
+            'secret': GOOGLE_OAUTH_CLIENT_SECRET,
+            'key': '',
+        }
+    ]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

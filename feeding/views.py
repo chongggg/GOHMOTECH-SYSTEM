@@ -1,9 +1,9 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from marketplace.permissions import FarmRolePermission
+from marketplace.decorators import farm_owner_required
 from django.shortcuts import redirect
-from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db import models
 from .models import FeedSchedule, FeedLevel, FeedLog, AutomatedFeedingConfig
@@ -19,7 +19,7 @@ class AutomatedFeedingConfigViewSet(viewsets.ModelViewSet):
     """ViewSet for Automated Feeding Configuration"""
     queryset = AutomatedFeedingConfig.objects.all()
     serializer_class = AutomatedFeedingConfigSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FarmRolePermission]
     
     @action(detail=False, methods=['post'])
     def toggle(self, request):
@@ -48,7 +48,7 @@ class FeedScheduleViewSet(viewsets.ModelViewSet):
     queryset = FeedSchedule.objects.all()
     serializer_class = FeedScheduleSerializer
     filterset_fields = ['feeder', 'is_active']
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FarmRolePermission]
     
     @action(detail=True, methods=['post'])
     def toggle_active(self, request, pk=None):
@@ -65,7 +65,7 @@ class FeedLevelViewSet(viewsets.ModelViewSet):
     """ViewSet for Feed Level monitoring"""
     queryset = FeedLevel.objects.all()
     serializer_class = FeedLevelSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FarmRolePermission]
     
     @action(detail=True, methods=['post'])
     def refill(self, request, pk=None):
@@ -163,7 +163,7 @@ class FeedLogViewSet(viewsets.ModelViewSet):
     queryset = FeedLog.objects.all()
     serializer_class = FeedLogSerializer
     filterset_fields = ['feeder', 'scheduled', 'status']
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FarmRolePermission]
     
     def get_permissions(self):
         """
@@ -404,19 +404,19 @@ class FeedLogViewSet(viewsets.ModelViewSet):
 
 # Django Template Views (HTML Pages)
 
-@login_required
+@farm_owner_required
 def feeding_dashboard_view(request):
     """Redirect to automation control page (feeding is now part of automation)"""
     return redirect('/iot/automation/')
 
 
-@login_required
+@farm_owner_required
 def schedule_list_view(request):
     """Redirect to automation control page (feeding is now part of automation)"""
     return redirect('/iot/automation/')
 
 
-@login_required
+@farm_owner_required
 def feed_logs_view(request):
     """Redirect to automation control page (feeding is now part of automation)"""
     return redirect('/iot/automation/')

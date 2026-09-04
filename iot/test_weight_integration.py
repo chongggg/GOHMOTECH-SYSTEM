@@ -3,9 +3,12 @@ import uuid
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
+from marketplace.auth import FARM_OWNER_GROUP_NAME
 
 from .models import Goat, GoatWeightMeasurement
 
@@ -26,6 +29,8 @@ class GoatWeightIntegrationTests(TestCase):
             username='weight-farmer',
             password='test-password',
         )
+        farm_group, _ = Group.objects.get_or_create(name=FARM_OWNER_GROUP_NAME)
+        self.user.groups.add(farm_group)
         self.client.force_login(self.user)
         self.goat = Goat.objects.create(
             goat_id='GOAT-001',

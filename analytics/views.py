@@ -9,11 +9,11 @@ screen, the print-out and the downloaded file always agree.
 """
 
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.urls import reverse
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from marketplace.decorators import farm_owner_required
+from marketplace.permissions import IsFarmOwnerOrAdmin
 
 from .models import Report
 from .serializers import ReportSerializer
@@ -25,13 +25,13 @@ class ReportViewSet(viewsets.ModelViewSet):
     """ViewSet for saved Report metadata (CRUD via the API)."""
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsFarmOwnerOrAdmin]
 
     def perform_create(self, serializer):
         serializer.save(generated_by=self.request.user)
 
 
-@login_required
+@farm_owner_required
 def report_center_view(request):
     """Landing page: a card per available report, grouped by category."""
     categories = {}
@@ -48,7 +48,7 @@ def report_center_view(request):
     return render(request, "analytics/report_center.html", context)
 
 
-@login_required
+@farm_owner_required
 def report_view(request, report_type):
     """Render a single report (any type) using the generic report template."""
     if report_type not in report_data.REPORTS:
@@ -71,7 +71,7 @@ def report_view(request, report_type):
     return render(request, "analytics/report_detail.html", context)
 
 
-@login_required
+@farm_owner_required
 def report_print_view(request, report_type):
     """Print-optimised, standalone version of a report (browser Save-as-PDF)."""
     if report_type not in report_data.REPORTS:
@@ -88,7 +88,7 @@ def report_print_view(request, report_type):
     return render(request, "analytics/report_print.html", context)
 
 
-@login_required
+@farm_owner_required
 def report_export_view(request, report_type):
     """Download a report as CSV or Excel (?format=csv|xlsx)."""
     if report_type not in report_data.REPORTS:

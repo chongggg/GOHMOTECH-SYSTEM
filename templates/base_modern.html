@@ -162,10 +162,16 @@
             {% else %}
             <li class="sidebar-nav-title">Navigation</li>
             <li class="sidebar-nav-item">
-                <a href="/iot/" class="sidebar-nav-link">
+                <a href="{% if is_system_admin %}/iot/{% else %}/iot/owner/{% endif %}" class="sidebar-nav-link">
                     <i class="bi bi-grid-fill"></i> <span>Dashboard</span>
                 </a>
             </li>
+            <li class="sidebar-nav-item">
+                <a href="/iot/monitoring/" class="sidebar-nav-link">
+                    <i class="bi bi-camera-video"></i> <span>Monitoring</span>
+                </a>
+            </li>
+            {% if can_manage_farm %}
             <li class="sidebar-nav-item">
                 <a href="/iot/automation/" class="sidebar-nav-link">
                     <i class="bi bi-robot"></i> <span>Automation</span>
@@ -181,7 +187,8 @@
                     <i class="bi bi-file-earmark-text-fill"></i> <span>Reports</span>
                 </a>
             </li>
-            
+            {% endif %}
+
             <li class="sidebar-nav-title">Livestock</li>
             <li class="sidebar-nav-item">
                 <a href="/iot/inventory/" class="sidebar-nav-link">
@@ -198,10 +205,38 @@
                     <i class="bi bi-shop"></i> <span>Marketplace</span>
                 </a>
             </li>
-            {% if user.is_staff or user.is_superuser %}
+            {% if is_system_admin %}
             <li class="sidebar-nav-item">
                 <a href="/marketplace/manage/" class="sidebar-nav-link">
                     <i class="bi bi-bag-check-fill"></i> <span>Manage Marketplace</span>
+                </a>
+            </li>
+            <li class="sidebar-nav-title">User Management</li>
+            <li class="sidebar-nav-item">
+                <a href="{% url 'marketplace:registered_users_admin' %}" class="sidebar-nav-link">
+                    <i class="bi bi-people-fill"></i> <span>Registered Users</span>
+                </a>
+            </li>
+            <li class="sidebar-nav-item">
+                <a href="{% url 'marketplace:seller_applications_admin' %}" class="sidebar-nav-link">
+                    <i class="bi bi-patch-check-fill"></i> <span>Seller Applications</span>
+                </a>
+            </li>
+            <li class="sidebar-nav-title">Customer Service</li>
+            <li class="sidebar-nav-item">
+                <a href="{% url 'marketplace:admin_support_tickets' %}" class="sidebar-nav-link">
+                    <i class="bi bi-headset"></i> <span>Support Tickets</span>
+                </a>
+            </li>
+            {% elif is_farm_owner %}
+            <li class="sidebar-nav-item">
+                <a href="{% url 'marketplace:seller_dashboard' %}" class="sidebar-nav-link">
+                    <i class="bi bi-bag-check-fill"></i> <span>Manage Marketplace</span>
+                </a>
+            </li>
+            <li class="sidebar-nav-item">
+                <a href="/marketplace/inquiries/" class="sidebar-nav-link">
+                    <i class="bi bi-chat-left-text-fill"></i> <span>Inquiries</span>
                 </a>
             </li>
             {% else %}
@@ -223,16 +258,27 @@
             </li>
             
             <li class="sidebar-nav-title">System</li>
+            {% if not is_system_admin %}
+            <li class="sidebar-nav-item">
+                <a href="{% url 'marketplace:support_center' %}" class="sidebar-nav-link">
+                    <i class="bi bi-headset"></i> <span>Customer Service</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if is_system_admin %}
             <li class="sidebar-nav-item">
                 <a href="/sms/" class="sidebar-nav-link">
                     <i class="bi bi-chat-dots-fill"></i> <span>SMS Notifications</span>
                 </a>
             </li>
+            {% endif %}
+            {% if is_system_admin %}
             <li class="sidebar-nav-item">
                 <a href="/admin/" class="sidebar-nav-link">
                     <i class="bi bi-gear-fill"></i> <span>Settings</span>
                 </a>
             </li>
+            {% endif %}
             <li class="sidebar-nav-item">
                 <form method="post" action="/accounts/logout/" style="margin: 0;">
                     {% csrf_token %}
@@ -266,7 +312,7 @@
                 </button>
                 {% if is_marketplace_buyer %}
                 <a href="/marketplace/inquiries/" class="header-icon" title="My inquiries" style="text-decoration: none;"><i class="bi bi-chat-left-text-fill"></i></a>
-                {% else %}
+                {% elif can_manage_farm %}
                 <a href="/security/" class="header-icon" title="Notifications" style="text-decoration: none;"><i class="bi bi-bell-fill"></i>{% if nav_unread_count %}<span class="badge bg-danger">{{ nav_unread_count }}</span>{% endif %}</a>
                 {% endif %}
                 <div class="header-icon dropdown">
@@ -275,7 +321,7 @@
                         <span style="margin-left: 8px; color: var(--text-secondary); font-size: 0.875rem; font-weight: 600;">{{ user.username }}</span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end shadow">
-                        {% if not is_marketplace_buyer %}
+                        {% if is_system_admin %}
                         <li><a class="dropdown-item" href="/admin/"><i class="bi bi-gear me-2"></i>Settings</a></li>
                         <li><hr class="dropdown-divider"></li>
                         {% endif %}

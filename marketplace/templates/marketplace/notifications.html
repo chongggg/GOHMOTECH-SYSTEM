@@ -1,0 +1,27 @@
+{% extends "marketplace/buyer_base.html" %}
+{% block title %}Notifications | GoHMoTech{% endblock %}
+{% block content %}
+<section class="buyer-page"><div class="store-container">
+  {% include "marketplace/_messages.html" %}
+  <div class="section-heading">
+    <div><span class="section-kicker">Your account</span><h1>Notifications</h1><p>Private updates about marketplace activity and customer support tickets.</p></div>
+    {% if marketplace_unread_notification_count %}<form method="post" action="{% url 'marketplace:notifications_read_all' %}">{% csrf_token %}<button class="button button-ghost">Mark all read</button></form>{% endif %}
+  </div>
+  <div class="notification-list">
+    {% for notification in notifications %}
+      <form method="post" action="{% url 'marketplace:notification_open' notification.pk %}" class="notification-row {% if not notification.is_read %}notification-unread{% endif %}">
+        {% csrf_token %}
+        <button type="submit">
+          <span class="notification-icon"><i class="bi {% if notification.notification_type == 'message' %}bi-chat-dots{% elif notification.notification_type == 'reservation' %}bi-bookmark-check{% elif notification.notification_type == 'pickup' %}bi-calendar-check{% elif notification.notification_type == 'report' %}bi-flag{% elif notification.notification_type == 'seller_review' %}bi-patch-check{% elif notification.notification_type == 'support' %}bi-headset{% else %}bi-bell{% endif %}"></i></span>
+          <span class="notification-copy"><strong>{{ notification.title }}</strong>{% if notification.message %}<span>{{ notification.message }}</span>{% endif %}<small>{{ notification.created_at|date:"M j, Y · g:i A" }}</small></span>
+          {% if not notification.is_read %}<span class="notification-dot" aria-label="Unread"></span>{% endif %}
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </form>
+    {% empty %}
+      <div class="empty-store"><i class="bi bi-bell"></i><h3>No notifications</h3><p>Marketplace and customer support updates will appear here.</p></div>
+    {% endfor %}
+  </div>
+  {% if page_obj.has_other_pages %}<nav class="catalog-pagination">{% if page_obj.has_previous %}<a class="page-control" href="?page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a class="page-control" href="?page={{ page_obj.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+</div></section>
+{% endblock %}

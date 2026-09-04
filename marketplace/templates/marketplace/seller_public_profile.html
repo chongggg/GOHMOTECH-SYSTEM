@@ -1,0 +1,8 @@
+{% extends "marketplace/buyer_base.html" %}
+{% block title %}{{ profile.farm_name }} | GoHMoTech Seller{% endblock %}
+{% block content %}<section class="buyer-page"><div class="store-container">{% include "marketplace/_messages.html" %}
+<div class="public-seller-hero"><div class="seller-avatar">{% if profile.profile_image %}<img src="{{ profile.profile_image.url }}" alt="{{ profile.farm_name }}">{% else %}<i class="bi bi-shop"></i>{% endif %}</div><div><span class="approved-seller-badge"><i class="bi bi-patch-check-fill"></i> {% if profile.user.is_staff or profile.user.is_superuser %}GoHMoTech Smart Farm{% else %}Approved Seller{% endif %}</span><h1>{{ profile.farm_name }}</h1><p><i class="bi bi-geo-alt"></i> {{ profile.public_location|default:'Location not provided' }}</p><p>{{ profile.farm_description }}</p><small>Member since {{ profile.user.date_joined|date:"F Y" }}</small></div></div>
+<div class="seller-public-stats"><span><strong>{{ active_count }}</strong> active goats</span><span><strong>{{ sold_count }}</strong> sold goats</span></div>
+<div class="section-heading seller-listing-heading"><div><h2>Seller's goats</h2><p>Available and currently reserved listings from this approved seller.</p></div></div>
+<div class="product-grid">{% for listing in listings %}{% include "marketplace/product_card.html" with listing=listing %}{% empty %}<div class="empty-store"><i class="bi bi-shop-window"></i><h2>No active listings</h2><p>This seller has no goats listed right now.</p></div>{% endfor %}</div>
+</div></section>{% endblock %}

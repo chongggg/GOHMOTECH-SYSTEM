@@ -18,6 +18,9 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from allauth.account import views as account_views
+
+handler403 = 'dashboard.views.permission_denied_view'
 
 urlpatterns = [
     # Admin panel
@@ -33,8 +36,15 @@ urlpatterns = [
     path('sms/', include(('sms.urls', 'sms'), namespace='sms')),  # SMS notifications
     path('marketplace/', include(('marketplace.urls', 'marketplace'), namespace='marketplace')),
 
-    # Authentication (Django built-in)
-    path('accounts/', include('django.contrib.auth.urls')),
+    # Authentication. Legacy URL names remain available for existing templates,
+    # while allauth provides email/password and Google OAuth/OIDC flows.
+    path(
+        'accounts/login/',
+        account_views.LoginView.as_view(template_name='registration/login.html'),
+        name='login',
+    ),
+    path('accounts/logout/', account_views.LogoutView.as_view(), name='logout'),
+    path('accounts/', include('allauth.urls')),
 ]
 
 # Serve media files in development

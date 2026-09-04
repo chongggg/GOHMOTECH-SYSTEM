@@ -19,13 +19,24 @@ from datetime import datetime, timedelta
 
 from django.utils import timezone
 from django.db.models import Count, Avg, Sum, Max, Min, Q
+from django.contrib.auth import get_user_model
 from django.db.models.functions import TruncDate
 
 from iot.models import SensorReading, ActuationLog
 from iot.goat_models import Goat
 from feeding.models import FeedLog, FeedSchedule
 from ml_models.models import Detection
-from marketplace.models import Conversation, MarketplaceListing, Reservation
+from marketplace.auth import BUYER_GROUP_NAME
+from marketplace.models import (
+    Conversation,
+    MarketplaceListing,
+    MarketplaceReport,
+    Reservation,
+    SellerProfile,
+)
+
+
+User = get_user_model()
 
 
 SYSTEM_NAME = "GoHMoTech — Smart Goat House Monitoring System"
@@ -896,7 +907,7 @@ def build_marketplace(days=30, status="all", search=""):
         _search("search", "Search goat / buyer", search),
     ]
 
-    listings = MarketplaceListing.objects.select_related("goat")
+    listings = MarketplaceListing.objects.select_related("goat", "seller__seller_profile")
     transactions = Reservation.objects.filter(reserved_at__gte=start).select_related(
         "listing__goat", "buyer", "completed_by"
     )
@@ -918,6 +929,19 @@ def build_marketplace(days=30, status="all", search=""):
     active_reservations = MarketplaceListing.objects.filter(
         status=MarketplaceListing.RESERVED
     ).count()
+    seller_profiles = SellerProfile.objects.all()
+    approved_sellers = seller_profiles.filter(status=SellerProfile.APPROVED).count()
+    pending_sellers = seller_profiles.filter(status=SellerProfile.PENDING).count()
+    registered_buyers = User.objects.filter(
+        groups__name=BUYER_GROUP_NAME,
+        is_active=True,
+    ).distinct().count()
+    pending_reports = MarketplaceReport.objects.filter(
+        status__in=[MarketplaceReport.PENDING, MarketplaceReport.REVIEWING]
+    ).count()
+    average_price = listings.filter(
+        status__in=[MarketplaceListing.AVAILABLE, MarketplaceListing.RESERVED]
+    ).aggregate(value=Avg("price"))["value"] or 0
 
     data["summary"] = [
         _card(
@@ -931,6 +955,11 @@ def build_marketplace(days=30, status="all", search=""):
         _card("Currently Reserved", active_reservations, "bi-hourglass-split", "yellow"),
         _card("Completed Sales", completed.count(), "bi-bag-check", "green"),
         _card("Sales Revenue", f"PHP {revenue:,.2f}", "bi-cash-stack", "green"),
+        _card("Registered Buyers", registered_buyers, "bi-people", "blue"),
+        _card("Approved Sellers", approved_sellers, "bi-patch-check", "green"),
+        _card("Pending Sellers", pending_sellers, "bi-person-exclamation", "yellow"),
+        _card("Average Active Price", f"PHP {average_price:,.2f}", "bi-tag", "purple"),
+        _card("Open Reports", pending_reports, "bi-flag", "yellow"),
     ]
 
     listing_status_names = _display_map(MarketplaceListing.STATUS_CHOICES)
@@ -941,6 +970,46 @@ def build_marketplace(days=30, status="all", search=""):
         "Current Listing Status",
         [listing_status_names.get(row["status"], row["status"]) for row in listing_status_rows],
         [{"label": "Listings", "data": [row["c"] for row in listing_status_rows]}],
+    ))
+
+    seller_status_names = _display_map(SellerProfile.STATUS_CHOICES)
+    seller_status_rows = seller_profiles.values("status").annotate(c=Count("id")).order_by("status")
+    data["charts"].append(_chart(
+        "seller_status",
+        "doughnut",
+        "Seller Approval Status",
+        [seller_status_names.get(row["status"], row["status"]) for row in seller_status_rows],
+        [{"label": "Sellers", "data": [row["c"] for row in seller_status_rows]}],
+    ))
+
+    breed_rows = (
+        listings.filter(status__in=[MarketplaceListing.AVAILABLE, MarketplaceListing.RESERVED])
+        .values("goat__breed")
+        .annotate(c=Count("id"))
+        .order_by("-c", "goat__breed")[:10]
+    )
+    breed_names = _display_map(Goat.BREED_CHOICES)
+    data["charts"].append(_chart(
+        "listed_breeds",
+        "bar",
+        "Most Listed Breeds",
+        [breed_names.get(row["goat__breed"], row["goat__breed"] or "Unspecified") for row in breed_rows],
+        [{"label": "Active listings", "data": [row["c"] for row in breed_rows]}],
+    ))
+
+    location_rows = (
+        listings.filter(status__in=[MarketplaceListing.AVAILABLE, MarketplaceListing.RESERVED])
+        .exclude(seller__seller_profile__province="")
+        .values("seller__seller_profile__province")
+        .annotate(c=Count("id"))
+        .order_by("-c", "seller__seller_profile__province")[:10]
+    )
+    data["charts"].append(_chart(
+        "listing_locations",
+        "bar",
+        "Active Listings by Province",
+        [row["seller__seller_profile__province"] for row in location_rows],
+        [{"label": "Listings", "data": [row["c"] for row in location_rows]}],
     ))
 
     period_transactions = Reservation.objects.filter(reserved_at__gte=start)
@@ -979,12 +1048,13 @@ def build_marketplace(days=30, status="all", search=""):
     data["note"] = (
         f"Marketplace activity covers {_period_label(days).lower()}. Current listing counts are a live snapshot. "
         f"Sales revenue includes only completed transactions; reservations are not treated as sales. "
-        f"Inquiry-to-sale conversion for the period is {_pct(completed_count, inquiries.count())}%."
+        f"Inquiry-to-sale conversion for the period is {_pct(completed_count, inquiries.count())}%. "
+        f"Seller and buyer totals are current account snapshots; exact private seller addresses are never included."
     )
 
     pickup_names = _display_map(Reservation.PICKUP_STATUS_CHOICES)
     data["columns"] = [
-        "Reserved At", "Goat", "Buyer", "Agreed Price", "Status",
+        "Requested At", "Goat", "Buyer", "Agreed Price", "Status",
         "Pickup Status", "Pickup Schedule", "Completed / Cancelled",
     ]
     data["rows"] = [
@@ -997,8 +1067,10 @@ def build_marketplace(days=30, status="all", search=""):
             pickup_names.get(item.pickup_status, item.pickup_status),
             timezone.localtime(item.pickup_datetime).strftime("%Y-%m-%d %H:%M")
             if item.pickup_datetime else "—",
-            timezone.localtime(item.completed_at or item.cancelled_at).strftime("%Y-%m-%d %H:%M")
-            if (item.completed_at or item.cancelled_at) else "—",
+            timezone.localtime(
+                item.completed_at or item.cancelled_at or item.rejected_at
+            ).strftime("%Y-%m-%d %H:%M")
+            if (item.completed_at or item.cancelled_at or item.rejected_at) else "—",
         ]
         for item in transactions.order_by("-reserved_at")[:500]
     ]

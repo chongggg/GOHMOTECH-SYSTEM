@@ -4,8 +4,8 @@ Includes AI detection integration, status management, and detailed analytics
 """
 
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.core.cache import cache
 from django.db import transaction
 from django.db.utils import IntegrityError
@@ -28,6 +28,8 @@ from .goat_models import (
     Goat, GoatWeightMeasurement, GoatImage, GoatDetectionHistory, MissingGoatAlert
 )
 from .forms import BLEBeaconForm, GoatForm
+from marketplace.decorators import farm_access_required, farm_owner_required
+from marketplace.auth import can_manage_farm
 
 
 SCALE_DEVICE_ID = 'kamotech_scale_esp32_001'
@@ -156,7 +158,7 @@ def scale_reading_ingest(request):
     return JsonResponse({'ok': True, 'received_at': snapshot['received_at']}, status=202)
 
 
-@login_required
+@farm_access_required
 def goat_weight_live(request, goat_id):
     """Return the latest transient scale state for an explicitly selected goat."""
     goat = get_object_or_404(Goat, goat_id=goat_id)
@@ -167,7 +169,7 @@ def goat_weight_live(request, goat_id):
     })
 
 
-@login_required
+@farm_owner_required
 @require_POST
 def save_goat_weight(request, goat_id):
     """Persist a confirmed load-cell or manual measurement for this goat."""
@@ -279,7 +281,7 @@ def _save_data_url_image(goat, data_url, image_type='identification',
         return None
 
 
-@login_required
+@farm_access_required
 def goat_inventory(request):
     """
     Modern livestock inventory: list, search, filter, and manage goats.
@@ -334,7 +336,7 @@ def goat_inventory(request):
     return render(request, 'iot/goat_inventory.html', context)
 
 
-@login_required
+@farm_access_required
 def goat_detail_enhanced(request, goat_id):
     """
     Modern goat management page: view & edit all livestock information,
@@ -346,6 +348,8 @@ def goat_detail_enhanced(request, goat_id):
     beacon = getattr(goat, 'ble_beacon', None)
 
     if request.method == 'POST':
+        if not can_manage_farm(request.user):
+            raise PermissionDenied('Farm Operators cannot modify goat records.')
         form = GoatForm(request.POST, instance=goat)
         form.fields.pop('weight_kg', None)
         beacon_form = BLEBeaconForm(request.POST, instance=beacon, prefix='ble')
@@ -392,6 +396,11 @@ def goat_detail_enhanced(request, goat_id):
         form = GoatForm(instance=goat)
         form.fields.pop('weight_kg', None)
         beacon_form = BLEBeaconForm(instance=beacon, prefix='ble')
+        if not can_manage_farm(request.user):
+            for field in form.fields.values():
+                field.disabled = True
+            for field in beacon_form.fields.values():
+                field.disabled = True
 
     # Image gallery — newest first; the newest image acts as the cover/primary.
     images = GoatImage.objects.filter(goat=goat).order_by('-uploaded_at')
@@ -418,7 +427,7 @@ def goat_detail_enhanced(request, goat_id):
     return render(request, 'iot/goat_detail_enhanced.html', context)
 
 
-@login_required
+@farm_owner_required
 @require_POST
 def delete_goat_image(request, goat_id, image_id):
     """Delete a single image from a goat's gallery (Goat Inventory module)."""
@@ -433,7 +442,7 @@ def delete_goat_image(request, goat_id, image_id):
     return redirect('goat_detail_enhanced', goat_id=goat_id)
 
 
-@login_required
+@farm_owner_required
 @require_POST
 def upload_goat_image(request, goat_id):
     """
@@ -474,7 +483,7 @@ def upload_goat_image(request, goat_id):
     return redirect('goat_detail_enhanced', goat_id=goat_id)
 
 
-@login_required
+@farm_owner_required
 @require_POST
 def update_goat_status(request, goat_id):
     """
@@ -537,7 +546,7 @@ def update_goat_status(request, goat_id):
     return redirect('goat_detail_enhanced', goat_id=goat_id)
 
 
-@login_required
+@farm_owner_required
 def missing_goat_alerts(request):
     """
     View all missing goat alerts.
@@ -589,7 +598,7 @@ def missing_goat_alerts(request):
     return render(request, 'iot/missing_goat_alerts.html', context)
 
 
-@login_required
+@farm_owner_required
 @require_POST
 def resolve_alert(request, alert_id):
     """
@@ -617,7 +626,7 @@ def resolve_alert(request, alert_id):
     return redirect('missing_goat_alerts')
 
 
-@login_required
+@farm_access_required
 def detection_history(request):
     """
     View recent detection history across all goats.
@@ -667,23 +676,6 @@ def detection_history(request):
     return render(request, 'iot/detection_history.html', context)
 
 
-# Helper functions
-
-def format_time_ago(time_diff):
-    """Format a timedelta into human-readable 'time ago' string."""
-    seconds = time_diff.total_seconds()
-    
-    if seconds < 60:
-        return f"{int(seconds)} seconds ago"
-    elif seconds < 3600:
-        minutes = int(seconds / 60)
-        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-    elif seconds < 86400:
-        hours = int(seconds / 3600)
-        return f"{hours} hour{'s' if hours != 1 else ''} ago"
-    else:
-        days = int(seconds / 86400)
-        return f"{days} day{'s' if days != 1 else ''} ago"
 
 
 def format_time_duration(time_diff):

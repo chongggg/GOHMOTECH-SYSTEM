@@ -146,9 +146,10 @@
             <h6 class="mb-1"><i class="bi bi-camera-video-off"></i> No camera configured</h6>
             <p class="mb-2">No IP camera is registered, so there is no live feed to monitor yet.</p>
             <p class="mb-0 small">
-                Add one in
+                {% if is_system_admin %}Add one in
                 <a href="/admin/iot/ipcamera/" class="alert-link" target="_blank">Admin → IoT → IP Cameras</a>
                 (camera ID, type, IP address, and credentials if required), then reload this page.
+                {% else %}Contact the system administrator to register a camera.{% endif %}
             </p>
         </div>
     {% endif %}
@@ -156,8 +157,8 @@
         <div class="alert alert-warning" role="alert">
             <h6 class="mb-1"><i class="bi bi-robot"></i> No active detection model</h6>
             <p class="mb-0 small">
-                The camera can still stream, but detection requests will fail until a model is activated in
-                <a href="{% url 'ml_models:model_management' %}" class="alert-link">ML Model Management</a>.
+                The camera can still stream, but detection requests require an active model.
+                {% if is_system_admin %}<a href="{% url 'ml_models:model_management' %}" class="alert-link">Open ML Model Management</a>.{% endif %}
             </p>
         </div>
     {% endif %}
@@ -217,11 +218,11 @@
                         <img class="camera-feed d-none" id="camera-main-feed" alt="Goat House Camera">
                         <span class="goat-count-badge d-none" id="main-goat-count">0 goats detected</span>
                     </div>
-                    <div class="camera-controls">
+                    {% if can_manage_farm %}<div class="camera-controls">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <button class="btn btn-sm btn-outline" onclick="toggleSettings()">
+                            {% if is_system_admin %}<button class="btn btn-sm btn-outline" onclick="toggleSettings()">
                                 <i class="bi bi-gear" id="settings-icon"></i> <span id="settings-text">Camera settings</span>
-                            </button>
+                            </button>{% endif %}
                             <div class="btn-group btn-group-sm">
                                 <button class="btn btn-success" id="start-camera-btn" onclick="connectCamera()">
                                     <i class="bi bi-play-circle"></i> Start Detection
@@ -232,7 +233,7 @@
                             </div>
                         </div>
 
-                        <div id="camera-settings" class="config-section d-none">
+                        {% if is_system_admin %}<div id="camera-settings" class="config-section d-none">
                             {% if camera %}
                             <div class="alert alert-success mb-3" style="font-size:.85rem;">
                                 <i class="bi bi-check-circle-fill"></i>
@@ -293,8 +294,8 @@
                                     </p>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </div>{% endif %}
+                    </div>{% else %}<div class="camera-controls"><span class="badge bg-secondary">Read-only live camera</span></div>{% endif %}
                 </div>
 
                 <!-- Honesty note about how detection actually runs -->
@@ -334,9 +335,9 @@
                                 <div style="font-weight:700;">No active model</div>
                             </div>
                             <p class="model-meta mb-0">
-                                Activate a validated model in
+                                {% if is_system_admin %}Activate a validated model in
                                 <a href="{% url 'ml_models:model_management' %}">Model Management</a>
-                                to enable detection.
+                                to enable detection.{% else %}Contact the system administrator to activate a detection model.{% endif %}
                             </p>
                         {% endif %}
                     </div>
@@ -370,7 +371,7 @@
     let cameraConnected = false;
     let detectionInterval = null;
 
-    // Toggle camera settings panel
+    {% if is_system_admin %}// Toggle camera settings panel
     function toggleSettings() {
         const settingsDiv = document.getElementById('camera-settings');
         const settingsText = document.getElementById('settings-text');
@@ -385,14 +386,14 @@
             settingsText.textContent = 'Camera settings';
             settingsIcon.className = 'bi bi-gear';
         }
-    }
+    }{% endif %}
 
     // Connect to camera and start detection
     function connectCamera() {
         {% if camera %}
         // Use configured camera from database
         const intervalInput = document.getElementById('detection-interval');
-        const interval = parseInt(intervalInput.value) || 2;
+        const interval = intervalInput ? (parseInt(intervalInput.value) || 2) : 2;
 
         const statusBadge = document.getElementById('status-badge');
         const cameraStatusText = document.getElementById('camera-status-text');
@@ -421,7 +422,7 @@
             cameraConnected = true;
 
             // Start periodic detection
-            startDetection(interval);
+            {% if can_manage_farm %}startDetection(interval);{% endif %}
         };
 
         // Handle load error
@@ -436,7 +437,7 @@
 
             alert('Failed to connect to camera. Please check:\n- Camera IP: {{ camera.ip_address }}\n- Camera is powered on\n- Network connection');
         };
-        {% else %}
+        {% elif is_system_admin %}
         // No camera configured in database
         alert('No camera configured! Please add a camera in the Admin Panel:\n/admin/iot/ipcamera/');
         {% endif %}
@@ -565,7 +566,7 @@
         document.getElementById('avg-confidence').textContent = '0%';
     }
 
-    // Save camera configuration to localStorage
+    {% if is_system_admin %}// Save camera configuration to localStorage
     function saveCameraConfig() {
         const config = {
             ip: document.getElementById('camera-ip').value,
@@ -592,7 +593,7 @@
         } else {
             alert('No saved configuration found');
         }
-    }
+    }{% endif %}
 
     // Get CSRF token for form submissions
     function getCookie(name) {
@@ -676,7 +677,7 @@
         {% if camera %}
         // Auto-connect to configured camera
         setTimeout(() => connectCamera(), 500);
-        {% else %}
+        {% elif is_system_admin %}
         // Try to load saved config from localStorage
         const savedConfig = localStorage.getItem('goatCameraConfig');
         if (savedConfig) {

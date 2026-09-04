@@ -15,31 +15,19 @@ mechanism is introduced):
     restricted to staff.
 """
 
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from marketplace.decorators import farm_owner_required
+from marketplace.permissions import IsFarmOwnerOrAdmin
 from rest_framework.response import Response
 
 from .models import Notification, PersonDetection
 from .serializers import NotificationSerializer, PersonDetectionSerializer
 from . import services
-
-
-class IsStaffOrReadOnly(IsAuthenticated):
-    """Authenticated users may read/act; only staff may destroy records."""
-
-    def has_permission(self, request, view):
-        base = super().has_permission(request, view)
-        if not base:
-            return False
-        if view.action == 'destroy':
-            return bool(request.user and request.user.is_staff)
-        return True
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -56,7 +44,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     """
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
-    permission_classes = [IsStaffOrReadOnly]
+    permission_classes = [IsFarmOwnerOrAdmin]
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = {
@@ -126,7 +114,7 @@ class PersonDetectionViewSet(viewsets.ModelViewSet):
     """
     queryset = PersonDetection.objects.select_related('camera', 'notification').all()
     serializer_class = PersonDetectionSerializer
-    permission_classes = [IsStaffOrReadOnly]
+    permission_classes = [IsFarmOwnerOrAdmin]
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = {
@@ -158,7 +146,7 @@ class PersonDetectionViewSet(viewsets.ModelViewSet):
 # Page views (server-rendered)
 # ---------------------------------------------------------------------------
 
-@login_required
+@farm_owner_required
 def security_dashboard(request):
     """
     The tabbed Security page: Overview / Alerts / Person Detection / ML Models.
@@ -191,7 +179,7 @@ def security_dashboard(request):
     return render(request, 'security/security_dashboard.html', context)
 
 
-@login_required
+@farm_owner_required
 def person_detection_detail(request, pk):
     """Single person-detection page — target of "open related event"."""
     detection = get_object_or_404(

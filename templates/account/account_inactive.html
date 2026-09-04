@@ -1,0 +1,170 @@
+{% extends "marketplace/buyer_base.html" %}
+{% load static %}
+
+{% block title %}Account Unavailable | GoHMoTech{% endblock %}
+
+{% block extra_head %}
+<style>
+  .inactive-page {
+    position: relative;
+    min-height: calc(100vh - 70px);
+    overflow: hidden;
+    padding: clamp(54px, 8vw, 96px) 0;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(223, 242, 178, .55), transparent 24rem),
+      radial-gradient(circle at 92% 82%, rgba(47, 125, 86, .12), transparent 26rem),
+      var(--cream);
+  }
+  .inactive-page::before,
+  .inactive-page::after {
+    content: "";
+    position: absolute;
+    border: 1px solid rgba(23, 79, 56, .09);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .inactive-page::before { width: 420px; height: 420px; left: -260px; top: -220px; }
+  .inactive-page::after { width: 520px; height: 520px; right: -330px; bottom: -350px; }
+  .inactive-card {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 820px);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    background: #fff;
+    border: 1px solid rgba(23, 79, 56, .12);
+    border-radius: 26px;
+    overflow: hidden;
+    box-shadow: 0 24px 70px rgba(21, 55, 39, .13);
+  }
+  .inactive-visual {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 42px 30px;
+    background: linear-gradient(155deg, var(--forest-2), var(--forest));
+    color: #fff;
+  }
+  .inactive-visual::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: 210px;
+    height: 210px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 50%;
+    box-shadow: 0 0 0 40px rgba(255, 255, 255, .035), 0 0 0 80px rgba(255, 255, 255, .02);
+  }
+  .inactive-icon {
+    width: 92px;
+    height: 92px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, .24);
+    border-radius: 26px;
+    background: rgba(255, 255, 255, .12);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 18px 40px rgba(4, 25, 16, .2);
+    font-size: 42px;
+  }
+  .inactive-content { padding: clamp(32px, 5vw, 52px); }
+  .inactive-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: #fff2dd;
+    color: #7c5416;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .inactive-content h1 {
+    margin: 15px 0 12px;
+    font: 800 clamp(28px, 4vw, 39px)/1.16 "Plus Jakarta Sans", sans-serif;
+    letter-spacing: -.04em;
+  }
+  .inactive-lead { margin: 0; color: var(--muted); font-size: 15px; }
+  .inactive-notice {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 11px;
+    margin: 26px 0 22px;
+    padding: 15px;
+    border: 1px solid #eadfcb;
+    border-radius: 13px;
+    background: #fffbf4;
+    color: #5d5140;
+    font-size: 12px;
+  }
+  .inactive-notice i { color: #a56f1c; font-size: 18px; }
+  .inactive-notice strong { display: block; margin-bottom: 2px; color: var(--ink); }
+  .inactive-steps { display: grid; gap: 12px; margin: 0 0 27px; padding: 0; list-style: none; }
+  .inactive-steps li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: center; color: var(--muted); font-size: 12px; }
+  .inactive-steps span {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: #e9f2e8;
+    color: var(--forest);
+    font-weight: 800;
+  }
+  .inactive-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .inactive-actions .button { min-height: 45px; }
+  .inactive-help { margin: 22px 0 0; color: #8a948e; font-size: 10px; }
+  .inactive-help i { margin-right: 5px; color: var(--leaf); }
+  @media (max-width: 680px) {
+    .inactive-page { min-height: auto; padding: 28px 0 48px; }
+    .inactive-card { grid-template-columns: 1fr; border-radius: 20px; }
+    .inactive-visual { min-height: 150px; padding: 28px; }
+    .inactive-icon { width: 74px; height: 74px; border-radius: 21px; font-size: 34px; }
+    .inactive-content { padding: 28px 23px 30px; }
+  }
+  @media (max-width: 420px) {
+    .inactive-actions { display: grid; }
+    .inactive-actions .button { width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="inactive-page">
+  <div class="store-container">
+    <section class="inactive-card" aria-labelledby="inactive-title">
+      <div class="inactive-visual" aria-hidden="true">
+        <div class="inactive-icon"><i class="bi bi-person-lock"></i></div>
+      </div>
+      <div class="inactive-content">
+        <span class="inactive-status"><i class="bi bi-pause-circle-fill"></i> Account access paused</span>
+        <h1 id="inactive-title">Your account is currently unavailable</h1>
+        <p class="inactive-lead">This account has been deactivated or suspended, so sign-in and protected GoHMoTech features are temporarily unavailable.</p>
+
+        <div class="inactive-notice" role="status">
+          <i class="bi bi-info-circle-fill"></i>
+          <div><strong>Need your access restored?</strong>Contact your GoHMoTech administrator and ask them to review your account status.</div>
+        </div>
+
+        <ol class="inactive-steps" aria-label="What to do next">
+          <li><span>1</span><div>Contact the administrator responsible for your account.</div></li>
+          <li><span>2</span><div>Provide your registered name or email address for verification.</div></li>
+          <li><span>3</span><div>Wait for confirmation before trying to sign in again.</div></li>
+        </ol>
+
+        <div class="inactive-actions">
+          <a class="button button-primary" href="{% url 'account_login' %}"><i class="bi bi-arrow-left"></i> Back to sign in</a>
+          <a class="button button-ghost" href="{% url 'marketplace:landing' %}"><i class="bi bi-shop"></i> Browse marketplace</a>
+        </div>
+        <p class="inactive-help"><i class="bi bi-shield-lock-fill"></i>For your security, account status details are only shared after identity verification.</p>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}

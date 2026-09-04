@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GoHMoTech Marketplace — healthy, farm-raised goats with transparent livestock records.">
+  <meta name="description" content="GoHMoTech community marketplace — discover goats from approved local sellers and the GoHMoTech smart farm.">
   <title>{% block title %}GoHMoTech Marketplace{% endblock %}</title>
   <link rel="icon" type="image/png" href="{% static 'images/gohmotech-logo.png' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,18 +19,38 @@
     <div class="store-container nav-shell">
       <a class="store-brand" href="{% url 'marketplace:landing' %}">
         <span class="brand-mark"><img src="{% static 'images/gohmotech-logo.png' %}" alt="GoHMoTech logo"></span>
-        <span><strong>GoHMoTech</strong><small>Farm Marketplace</small></span>
+        <span><strong>GoHMoTech</strong><small>Community Marketplace</small></span>
       </a>
       <button class="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false" data-nav-toggle><i class="bi bi-list"></i></button>
       <nav class="store-nav" data-nav>
         <a href="{% url 'marketplace:landing' %}" {% if request.resolver_match.url_name == 'landing' %}class="active"{% endif %}>Home</a>
         <a href="{% url 'marketplace:list' %}" {% if request.resolver_match.url_name == 'list' or request.resolver_match.url_name == 'detail' %}class="active"{% endif %}>Browse Goats</a>
         <a href="{% url 'marketplace:landing' %}#how-it-works">How It Works</a>
-        {% if user.is_authenticated and not user.is_staff %}<a href="{% url 'marketplace:my_inquiries' %}">My Inquiries</a>{% endif %}
+        {% if user.is_authenticated and not user.is_staff %}
+          <details class="desktop-account-menu">
+            <summary>My account <i class="bi bi-chevron-down"></i></summary>
+            <div class="desktop-account-menu-panel">
+              <a href="{% url 'marketplace:saved_goats' %}"><i class="bi bi-heart"></i> Saved Goats</a>
+              <a href="{% url 'marketplace:my_inquiries' %}"><i class="bi bi-chat-dots"></i> My Inquiries</a>
+              <a href="{% url 'marketplace:buyer_reservations' %}"><i class="bi bi-bookmark-check"></i> My Reservations</a>
+              <a href="{% url 'marketplace:support_center' %}"><i class="bi bi-headset"></i> Customer Service</a>
+              {% if is_approved_seller %}
+                <span class="desktop-account-menu-label">Seller tools</span>
+                <a href="{% url 'marketplace:seller_dashboard' %}"><i class="bi bi-shop"></i> Seller Dashboard</a>
+                <a href="{% url 'marketplace:seller_messages' %}"><i class="bi bi-envelope"></i> Seller Messages</a>
+                <a href="{% url 'marketplace:seller_reservations' %}"><i class="bi bi-calendar-check"></i> Seller Reservations</a>
+              {% else %}
+                <a href="{% url 'marketplace:seller_application' %}"><i class="bi bi-patch-check"></i> {% if seller_profile %}Seller Application{% else %}Become a Seller{% endif %}</a>
+              {% endif %}
+            </div>
+          </details>
+        {% endif %}
         <div class="mobile-nav-actions">
           {% if user.is_authenticated %}
             <span class="mobile-nav-user"><i class="bi bi-person-circle"></i><span>Signed in as <strong>{{ user.first_name|default:user.username }}</strong></span></span>
-            {% if user.is_staff %}<a href="{% url 'marketplace:admin_dashboard' %}"><i class="bi bi-gear"></i> Manage Marketplace</a>{% endif %}
+            <a href="{% url 'marketplace:notifications' %}"><i class="bi bi-bell"></i> Notifications{% if marketplace_unread_notification_count %} ({{ marketplace_unread_notification_count }}){% endif %}</a>
+            {% if user.is_staff %}<a href="{% url 'marketplace:admin_dashboard' %}"><i class="bi bi-gear"></i> Manage Marketplace</a><a href="{% url 'marketplace:registered_users_admin' %}"><i class="bi bi-people"></i> Registered Users</a><a href="{% url 'marketplace:admin_support_tickets' %}"><i class="bi bi-headset"></i> Customer Service</a>{% else %}<a href="{% url 'marketplace:support_center' %}"><i class="bi bi-headset"></i> Customer Service</a>{% endif %}
+            {% if not user.is_staff %}<a href="{% url 'marketplace:saved_goats' %}"><i class="bi bi-heart"></i> Saved Goats</a><a href="{% url 'marketplace:buyer_reservations' %}"><i class="bi bi-bookmark-check"></i> My Reservations</a><a href="{% url 'marketplace:buyer_purchase_history' %}"><i class="bi bi-clock-history"></i> Purchase History</a>{% if is_approved_seller %}<a href="{% url 'marketplace:seller_dashboard' %}"><i class="bi bi-shop"></i> Seller Dashboard</a><a href="{% url 'marketplace:seller_messages' %}"><i class="bi bi-chat-dots"></i> Seller Messages</a><a href="{% url 'marketplace:seller_reservations' %}"><i class="bi bi-calendar-check"></i> Seller Reservations</a>{% else %}<a href="{% url 'marketplace:seller_application' %}"><i class="bi bi-patch-check"></i> {% if seller_profile %}Seller Application{% else %}Become a Seller{% endif %}</a>{% endif %}{% endif %}
             <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit"><i class="bi bi-box-arrow-right"></i> Log out</button></form>
           {% else %}
             <a href="{% url 'marketplace:buyer_login' %}?next={% url 'marketplace:list' %}"><i class="bi bi-box-arrow-in-right"></i> Sign in</a>
@@ -41,6 +61,7 @@
       <div class="nav-actions">
         {% if user.is_authenticated %}
           {% if user.is_staff %}<a class="button button-ghost button-small" href="{% url 'marketplace:admin_dashboard' %}">Manage</a>{% endif %}
+          <a class="notification-nav-button" href="{% url 'marketplace:notifications' %}" aria-label="Marketplace notifications"><i class="bi bi-bell"></i>{% if marketplace_unread_notification_count %}<span>{{ marketplace_unread_notification_count }}</span>{% endif %}</a>
           <span class="nav-user"><i class="bi bi-person-circle"></i> {{ user.first_name|default:user.username }}</span>
           <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="button button-dark button-small">Log out</button></form>
         {% else %}
@@ -55,10 +76,10 @@
 
   <footer class="store-footer">
     <div class="store-container footer-grid">
-      <div><a class="store-brand footer-brand" href="{% url 'marketplace:landing' %}"><span class="brand-mark"><img src="{% static 'images/gohmotech-logo.png' %}" alt="GoHMoTech logo"></span><span><strong>GoHMoTech</strong><small>Farm Marketplace</small></span></a><p>A transparent livestock marketplace connecting buyers with healthy, farm-raised goats.</p></div>
-      <div><h3>Marketplace</h3><a href="{% url 'marketplace:list' %}">Browse goats</a><a href="{% url 'marketplace:landing' %}#how-it-works">How buying works</a><a href="{% url 'marketplace:register' %}">Buyer registration</a></div>
-      <div><h3>Buyer assurance</h3><span>Inventory-linked records</span><span>Health information</span><span>Farm pickup only</span></div>
-      <div><h3>GoHMoTech Farm</h3><span><i class="bi bi-geo-alt"></i> Farm pickup, Philippines</span><span><i class="bi bi-shield-check"></i> Managed livestock records</span></div>
+      <div><a class="store-brand footer-brand" href="{% url 'marketplace:landing' %}"><span class="brand-mark"><img src="{% static 'images/gohmotech-logo.png' %}" alt="GoHMoTech logo"></span><span><strong>GoHMoTech</strong><small>Community Marketplace</small></span></a><p>A local livestock marketplace connecting buyers with approved goat owners.</p></div>
+      <div><h3>Marketplace</h3><a href="{% url 'marketplace:list' %}">Browse goats</a><a href="{% url 'marketplace:landing' %}#how-it-works">How buying works</a><a href="{% url 'marketplace:register' %}">Create an account</a></div>
+      <div><h3>Buyer assurance</h3><span>Approved sellers</span><span>Seller-owned goat records</span><span>Pickup-based transactions</span></div>
+      <div><h3>Community discovery</h3><span><i class="bi bi-geo-alt"></i> Search by public seller location</span><span><i class="bi bi-shield-check"></i> Private addresses stay protected</span></div>
     </div>
     <div class="store-container footer-bottom"><span>© {% now "Y" %} GoHMoTech Marketplace</span><span>Capstone livestock management platform</span></div>
   </footer>

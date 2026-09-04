@@ -49,7 +49,7 @@ class GoatImageInline(admin.TabularInline):
 
 @admin.register(Goat)
 class GoatAdmin(admin.ModelAdmin):
-    list_display = ['goat_id', 'name', 'breed', 'gender', 'status', 'age_display', 'last_seen', 'is_active']
+    list_display = ['goat_id', 'name', 'breed', 'gender', 'owner', 'status', 'age_display', 'last_seen', 'is_active']
     list_filter = ['breed', 'gender', 'status', 'health_status', 'is_active', 'date_added']
     search_fields = ['goat_id', 'name', 'tag_number']
     # date_hierarchy = 'date_added'  # Commented out - requires MySQL timezone tables on Windows
@@ -79,6 +79,12 @@ class GoatAdmin(admin.ModelAdmin):
         }),
     )
     readonly_fields = ['embedding_last_updated']
+
+    def save_model(self, request, obj, form, change):
+        if not obj.owner_id:
+            obj.owner = request.user
+        obj.record_source = Goat.SMART_FARM
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(GoatWeightMeasurement)

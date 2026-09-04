@@ -1,12 +1,12 @@
 """Browser views for BLE goat tracking."""
 
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
+from marketplace.decorators import farm_access_required
 
 from .models import BLEBeacon
 
 
-@login_required
+@farm_access_required
 def ble_tracking_dashboard(request):
     return render(
         request,
@@ -15,7 +15,7 @@ def ble_tracking_dashboard(request):
     )
 
 
-@login_required
+@farm_access_required
 def ble_find_goat(request, goat_id):
     beacon = get_object_or_404(
         BLEBeacon.objects.select_related('goat'),

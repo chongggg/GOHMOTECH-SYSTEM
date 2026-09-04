@@ -1,9 +1,10 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes as api_permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from marketplace.decorators import farm_access_required, farm_owner_required, staff_required
+from marketplace.permissions import FarmRolePermission, IsAdmin, IsFarmOwnerOrAdmin
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db import models
 from django.conf import settings
@@ -71,22 +72,6 @@ def _encode_image_to_data_url(image: np.ndarray) -> str:
         return ''
     b64_data = base64.b64encode(encoded.tobytes()).decode('utf-8')
     return f"data:image/png;base64,{b64_data}"
-
-
-def _decode_data_url_image(data_url: str) -> np.ndarray:
-    """Decode image data URL into an OpenCV image."""
-    if not data_url:
-        raise ValueError("Missing source frame image.")
-
-    payload = data_url.split(',', 1)[1] if ',' in data_url else data_url
-    image_bytes = base64.b64decode(payload)
-    image_array = np.frombuffer(image_bytes, np.uint8)
-    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-
-    if image is None:
-        raise ValueError("Invalid source frame image.")
-
-    return image
 
 
 def _extract_best_video_frame(video_path: str, detector) -> tuple:
@@ -440,7 +425,7 @@ class MLModelViewSet(viewsets.ModelViewSet):
     """ViewSet for ML Model CRUD + secure upload/validation/activation."""
     queryset = MLModel.objects.all()
     serializer_class = MLModelSerializer
-    permission_classes = [IsStaffForWrites]
+    permission_classes = [IsAdmin]
     filterset_fields = ['category', 'model_type', 'status', 'is_active']
 
     def perform_destroy(self, instance):
@@ -588,7 +573,7 @@ class DetectionViewSet(viewsets.ModelViewSet):
     """ViewSet for Detection operations"""
     queryset = Detection.objects.all()
     serializer_class = DetectionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FarmRolePermission]
     filterset_fields = ['camera', 'processed', 'timestamp']
     
     @action(detail=False, methods=['get'])
@@ -641,6 +626,7 @@ def _extract_persons(detector, detect_result):
 
 
 @api_view(['POST'])
+@api_permission_classes([IsFarmOwnerOrAdmin])
 def detect_goats_api(request):
     """
     API endpoint for goat detection and identification
@@ -799,6 +785,7 @@ def detect_goats_api(request):
 
 
 @api_view(['POST'])
+@api_permission_classes([IsAdmin])
 def test_recognition_api(request):
     """Run recognition testing on uploaded or existing image/video media."""
     if not CV2_AVAILABLE:
@@ -914,7 +901,7 @@ def test_recognition_api(request):
 
 # Django Template Views (HTML Pages)
 
-@login_required
+@staff_required
 def test_detection_view(request):
     """Recognition testing page for uploaded/existing image or video media."""
     active_model = MLModel.objects.filter(category='goat', is_active=True).first()
@@ -968,7 +955,7 @@ def test_detection_view(request):
     })
 
 
-@login_required
+@staff_required
 def diagnostics_view(request):
     """Diagnostics page for debugging live detection"""
     return render(request, 'ml_models/diagnostics.html', {
@@ -976,7 +963,7 @@ def diagnostics_view(request):
     })
 
 
-@login_required
+@farm_access_required
 def detection_feed_view(request):
     """Live detection feed page - Single camera goat house monitoring"""
     camera = None
@@ -992,7 +979,7 @@ def detection_feed_view(request):
     })
 
 
-@login_required
+@farm_access_required
 def detection_history_view(request):
     """Detection history page"""
     # Get recent detections
@@ -1008,7 +995,7 @@ def detection_history_view(request):
     })
 
 
-@login_required
+@staff_required
 def model_management_view(request):
     """Model management page"""
     models = MLModel.objects.all()
@@ -1021,6 +1008,7 @@ def model_management_view(request):
     })
 
 
+@farm_owner_required
 def detect_from_camera_stream(request):
     """Detect objects from camera stream (stub)"""
     from django.http import JsonResponse
@@ -1030,7 +1018,7 @@ def detect_from_camera_stream(request):
     }, status=501)
 
 
-@login_required
+@staff_required
 def download_model_file(request, pk):
     """
     Authenticated download of a privately-stored model file.

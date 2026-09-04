@@ -1,9 +1,12 @@
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
+
+from marketplace.auth import FARM_OWNER_GROUP_NAME
 
 from .models import (
     BLEBeacon,
@@ -201,6 +204,8 @@ class BLEGoatInventoryIntegrationTests(TestCase):
             username='inventory-admin',
             password='test-password',
         )
+        farm_group, _ = Group.objects.get_or_create(name=FARM_OWNER_GROUP_NAME)
+        self.user.groups.add(farm_group)
         self.client.force_login(self.user)
 
     def goat_payload(self, goat_id='NEW001'):
