@@ -11,7 +11,11 @@
   .market-login-form{display:grid;gap:16px;min-width:0}
   .market-login-form>p{min-width:0;margin:0}
   .market-login-form label{display:block;margin-bottom:7px;color:var(--ink);font-size:13px;font-weight:700}
-  .market-login-form input{width:100%;min-width:0;min-height:50px;margin:0;font-size:16px}
+  .market-login-form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]){width:100%;min-width:0;min-height:50px;margin:0;font-size:16px}
+  .market-login-form input[type="checkbox"],.market-login-form input[type="radio"]{width:18px;height:18px;min-width:18px;min-height:18px;margin:0;padding:0;accent-color:var(--leaf);vertical-align:middle}
+  .market-login-form>p:has(input[type="checkbox"]),.market-login-form>p:has(input[type="radio"]){display:flex;align-items:center;gap:9px}
+  .market-login-form>p:has(input[type="checkbox"]) label,.market-login-form>p:has(input[type="radio"]) label{order:2;margin:0;cursor:pointer}
+  .market-login-form>p:has(input[type="checkbox"]) input,.market-login-form>p:has(input[type="radio"]) input{order:1;flex:0 0 auto}
   .market-login-form .errorlist{margin:0 0 7px;padding:10px 12px;border:1px solid #f1cbc7;border-radius:10px;background:#fff0ee;color:#9f302b;list-style:none;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
   .market-login-form .helptext{display:block;margin-top:6px;line-height:1.5;overflow-wrap:anywhere}
   .market-login-submit{width:100%;min-height:50px;margin-top:2px}
